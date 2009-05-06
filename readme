@@ -1,0 +1,74 @@
+Polhemus Liberty Linux Driver - USB Component
+Version 2.0.1
+------------------------------------------
+
+Author: Daniel Myall <daniel@westco.co.nz>
+[With support from Polhemus]
+
+
+
+Intro
+------------------------------------------
+There are two components to the driver. The first is the firmware
+loader, the second is the Linux USB kernel module that
+communicates to the Liberty System.
+
+Installation
+-----------------------------------------
+This assumes that USB is working correctly on the machine. The
+following instructions need to be done as root.
+
+
+Part A: Firmware
+-----------------------------------------
+The firmware is loaded by the program fxload, standard with most
+linux distributions (or available from
+http://prdownloads.sourceforge.net/linux-hotplug/).
+
+Firstly, To usb.usermap (located under /etc/hotplug/usb.usermap on
+Redhat 9.0) add the following line:
+
+ liberty 0x0003 0x0f44 0xff11 0x0000 0x0000 0x00 0x00 0x00 0x00 0x00 0x00 0x00000000
+
+Copy the file "liberty" to '/etc/hotplug/usb'. This script assumes
+that a3load.hex and LibertyUSB.hex have been placed in the
+directory '/usr/share/usb', however, they can be placed where
+desired and liberty updated. Note that case is important. The
+liberty script also assumes that fxload is located in /sbin/.
+Change this as needed on your system.
+
+This will cause the firmware to be uploaded when Liberty is
+connected. Look in /var/log/messages for any error messages.
+
+Part B: USB Driver
+-----------------------------------------
+
+At the moment the generic linux USB driver is used. This works,
+although it is not ideal.
+
+Under a Linux 2.4 kernel to make this work simply run:
+
+/sbin/insmod usbserial vendor=0x0f44 product=0xff12
+
+This assumes that usbserial has been compiled as a module. Redhat
+8.0 has this by default. This line can be placed in
+/etc/rc.d/rc.local to run on startup.
+
+Under a Linux 2.6 kernel a different module is used.
+
+To /etc/modules.conf add the line:
+
+options visor vendor=oxf44 product=0xff12
+
+in /etc/rc.d/rc.local add the lines:
+
+modprobe usbserial
+modprobe visor
+
+These can also be run from the command line.
+
+The liberty system can now be plugged in. When attached the
+firmware will be uploaded, it will reconnect and become a serial
+port. Liberty can be directly communicated to via the device
+'/dev/usb/ttyUSB0' (i.e. by using a serial communication program
+such as minicom)
