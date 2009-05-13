@@ -45,8 +45,8 @@
 #define SIZE 10000
 #define DEVICENAME "/dev/ttyUSB0"
 
-long int starttime;
-long int curtime;
+double starttime;
+double curtime;
 timeval temp;
 
 void GetPno();
@@ -325,7 +325,7 @@ int GetBinPno()
     data_good = 1;
     
     gettimeofday(&temp, NULL);
-    curtime = ((temp.tv_sec * 1000) + (temp.tv_usec / 1000)) - starttime;
+    curtime = ((temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0)) - starttime;
     
     //system("clear");
     //printf("Time: %ld \n", curtime);
