@@ -198,12 +198,17 @@ int main(int argc, char *argv[])
         write(wrPort, "H*,0,0,1\r", strlen("H*,0,0,1\r"));
         
         write(wrPort, "U1\r", strlen("U1\r"));
-        write(wrPort, "R3\r", strlen("R3\r"));
+        write(wrPort, "R3\r", strlen("R3\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
+
+        // position, euler angles, timestamp
+        write(wrPort, "O*,2,4\r", strlen("O*,2,4\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
         
         gettimeofday(&temp, NULL);
-        starttime = (temp.tv_sec * 1000) + (temp.tv_usec / 1000);
+        starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
         
+        write(wrPort, "F1\r", 3);	// put tracker into binary mode
         while (started && !GetBinPno()) {}
+        write(wrPort, "F0\r", 3);	// return tracker to ASCII
 
         tcsetattr(rdPort, TCSANOW, &initialAtt);	// restore the original attributes
         close(rdPort);
@@ -256,7 +261,7 @@ void GetPno()
     memset(buf, 0, 2000);
 
     count = 0;
-    write(wrPort, "p", 1);	// request data
+    write(wrPort, "P", 1);	// request data
 
     // keep reading till the well has been dry for at least 5 attempts
     count = 0;
@@ -290,24 +295,24 @@ int GetBinPno()
     
     memset(buf, 0, 2000);
     
-    write(wrPort, "f1\r", 3);	// put tracker into binary mode
-    
-    write(wrPort, "p", 1);	// request data
+    write(wrPort, "P", 1);	// request data
     
     // keep reading till the well has been dry for at least 5 attempts
     count = start = 0;
-    usleep(1000);
-    do {			
+    usleep(100);
+    do {
         br = read(rdPort, buf + start, 2000 - start);
         if (br > 0)
             start += br;
-        usleep(1000);
-    } while ((br > 0) || (count++ < 5));
-    
+        usleep(100);
+    } while (((br > 0) || (count++ < 5))
+             && (start < (numChannels*(6*4+8))));
+
+    // (numChannels*(6*4+8))
+    // -> 6 floats (position, orientation) * 4 bytes/float + 8 bytes for header
+
     br = start;
-    
-    write(wrPort, "f0\r", 3);	// return tracker to ASCII
-    
+        
     
     // check for proper format LY for Liberty
     if (strncmp(buf, "LY", 2) && strncmp(buf, "PA", 2)) {
@@ -327,9 +332,10 @@ int GetBinPno()
 
 
     for (int s = 0; s < numChannels; s++) {
-        float *pData = (float *) (buf + 8 + (34 * (s)));	// header is first 8 bytes
-        
-        int station = buf[(34 * (s)) + 2];
+        float *pData = (float *) (buf + (8 + (6*4)) * (s));	// header is first 8 bytes
+
+        int station = buf[((8 + 6*4) * (s)) + 2];
+        int size = (int)*(unsigned short*)(buf+(8+6*4)*s+6);
         
         // this line can be used to capture raw text file of marker
         // information that can be easily imported into matlab
