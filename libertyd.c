@@ -116,6 +116,10 @@ int main(int argc, char *argv[])
     lo_server_thread_add_method(st, "/liberty/status", "i", status_handler, NULL);
     lo_server_thread_start(st);
 
+    started = 1;
+    port = 9999;
+    strcpy(host, "localhost");
+
     while (1) {
         sleep(slp);
         slp = 1;
