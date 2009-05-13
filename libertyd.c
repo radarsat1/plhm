@@ -291,7 +291,12 @@ int GetBinPno()
     timeval_subtract(&diff, &now, &prev);
     prev.tv_sec = now.tv_sec;
     prev.tv_usec = now.tv_usec;
-    printf("Update frequency: %0.2f Hz           \r", 1.0 / (diff.tv_usec/1000000.0 + diff.tv_sec));
+
+    static int c=0;
+    if (c++ > 30) {
+        fprintf(stderr, "Update frequency: %0.2f Hz           \r", 1.0 / (diff.tv_usec/1000000.0 + diff.tv_sec));
+        c=0;
+    }
     
     memset(buf, 0, 2000);
     
