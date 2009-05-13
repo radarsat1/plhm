@@ -345,12 +345,11 @@ int GetBinPno()
         // this line can be used to capture raw text file of marker
         // information that can be easily imported into matlab
         // to use: 1) uncomment 2) on command line, pipe output to text file
-        /*
-          printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %ld\n", station,
-          pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
-          curtime);
-        */
-        
+        printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
+               pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
+               curtime);
+        continue;
+
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
         char *addr = new char[30];
