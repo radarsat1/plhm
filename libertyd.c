@@ -199,14 +199,15 @@ int main(int argc, char *argv[])
         
         memset(buf, 0, 100);
         
-        write(wrPort, "H*,0,0,1\r", strlen("H*,0,0,1\r"));
+        write(wrPort, "H*,0,0,-1\r", strlen("H*,0,0,-1\r"));
         
         write(wrPort, "U1\r", strlen("U1\r"));
         write(wrPort, "R3\r", strlen("R3\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
 
-        // position, euler angles, timestamp
-        write(wrPort, "O*,2,4\r", strlen("O*,2,4\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
-        
+       
+        write(wrPort, "O*,2,4\r", strlen("O*,2,4\r")); // position, euler angle
+
+
         gettimeofday(&temp, NULL);
         starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
         
@@ -259,7 +260,7 @@ int timeval_subtract (struct timeval *result,
 void GetPno()
 {
     int br, count;
-    char buf[2000];		// may need to be larger if getting alot of data
+    char buf[2000];		// may need to be larger if getting a lot of data
     int start = 0;
 
     memset(buf, 0, 2000);
@@ -314,8 +315,8 @@ int GetBinPno()
         if (br > 0)
             start += br;
         usleep(100);
-    } while (((br > 0) || (count++ < 5))
-             && (start < (numChannels*(6*4+8))));
+    } while (((br > 0) || (count++ < 3))
+             && (start < (numChannels*(3*4+8))));
 
     // (numChannels*(6*4+8))
     // -> 6 floats (position, orientation) * 4 bytes/float + 8 bytes for header
@@ -327,7 +328,7 @@ int GetBinPno()
     if (strncmp(buf, "LY", 2) && strncmp(buf, "PA", 2)) {
         // PA for Patriot
         data_good = 0;
-        printf("Corrupted data received\n");
+        printf("Corrupted data received...\n");
         printf("%s\n", buf);
         return 1;
     }
@@ -341,17 +342,24 @@ int GetBinPno()
 
 
     for (int s = 0; s < numChannels; s++) {
-        float *pData = (float *) (buf + (8 + (6*4)) * (s));	// header is first 8 bytes
+        float *pData = (float *) (buf + (8 + (3*4)) * (s));	// header is first 8 bytes
 
-        int station = buf[((8 + 6*4) * (s)) + 2];
-        int size = (int)*(unsigned short*)(buf+(8+6*4)*s+6);
+        int station = buf[((8 + 3*4) * (s)) + 2];
+        int size = (int)*(unsigned short*)(buf+(8+3*4)*s+6);
         
         // this line can be used to capture raw text file of marker
         // information that can be easily imported into matlab
         // to use: 1) uncomment 2) on command line, pipe output to text file
-        printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
-               pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
-               curtime);
+       
+	// X,Y,Z,azimuth,elevation,roll 
+	//printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
+        //       pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
+        //       curtime);
+	
+	// X,Y,Z only
+	printf("%d, %.4f, %.4f, %.4f, %f\n", station,
+               pData[0], pData[1], pData[2], curtime);
+
         continue;
 
         //x message
