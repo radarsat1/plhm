@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
         write(wrPort, "R3\r", strlen("R3\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
 
        
-        write(wrPort, "O*,2,4\r", strlen("O*,2,4\r")); // position, euler angle
+        write(wrPort, "O*,2,4\r", strlen("O*,2,4\r")); //2-> position, 4-> euler angles
 
 
         gettimeofday(&temp, NULL);
@@ -315,8 +315,8 @@ int GetBinPno()
         if (br > 0)
             start += br;
         usleep(100);
-    } while (((br > 0) || (count++ < 3))
-             && (start < (numChannels*(3*4+8))));
+    } while (((br > 0) || (count++ < 5))
+             && (start < (numChannels*(6*4+8))));
 
     // (numChannels*(6*4+8))
     // -> 6 floats (position, orientation) * 4 bytes/float + 8 bytes for header
@@ -342,25 +342,29 @@ int GetBinPno()
 
 
     for (int s = 0; s < numChannels; s++) {
-        float *pData = (float *) (buf + (8 + (3*4)) * (s));	// header is first 8 bytes
+        float *pData = (float *) (buf + (8 + (6*4)) * (s));	// header is first 8 bytes
 
-        int station = buf[((8 + 3*4) * (s)) + 2];
-        int size = (int)*(unsigned short*)(buf+(8+3*4)*s+6);
+        int station = buf[((8 + 6*4) * (s)) + 2];
+        int size = (int)*(unsigned short*)(buf+(8+6*4)*s+6);
         
         // this line can be used to capture raw text file of marker
         // information that can be easily imported into matlab
         // to use: 1) uncomment 2) on command line, pipe output to text file
        
 	// X,Y,Z,azimuth,elevation,roll 
-	//printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
-        //       pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
-        //       curtime);
+
+	printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
+               pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
+               curtime);
 	
 	// X,Y,Z only
-	printf("%d, %.4f, %.4f, %.4f, %f\n", station,
-               pData[0], pData[1], pData[2], curtime);
+
+	//#if 0
+	//	printf("%d, %.4f, %.4f, %.4f, %f\n", station,
+	//     pData[0], pData[1], pData[2], curtime);
 
         continue;
+	//#endif
 
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
