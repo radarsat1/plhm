@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
         
         write(wrPort, "H*,0,0,-1\r", strlen("H*,0,0,-1\r"));
         
-        write(wrPort, "U1\r", strlen("U1\r"));
+        write(wrPort, "U1\r", strlen("U1\r"));  // set units to metric (centimetres)
         write(wrPort, "R3\r", strlen("R3\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
 
        
@@ -328,7 +328,7 @@ int GetBinPno()
     if (strncmp(buf, "LY", 2) && strncmp(buf, "PA", 2)) {
         // PA for Patriot
         data_good = 0;
-        printf("Corrupted data received...\n");
+        printf("Corrupted data received\n");
         printf("%s\n", buf);
         return 1;
     }
