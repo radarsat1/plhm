@@ -1,0 +1,15 @@
+Tips for using the Polhemus Liberty
+
+- make sure that you only have the number of sensors plugged in that
+  you want to record. i.e. the same number that is given on the
+  command line when running libertyd
+
+- the liberty computer is configured to run libertyd on startup.  if
+  you want to run it yourself with different arguments, use "killall"
+  to kill the libertyd process.  (you can use use "sudo
+  /etc/init.d/libertyd stop")
+
+- the libertyd process needs permission to access the USB port, which
+  is usually /dev/ttyUSB0.  either give it permission with "sudo chmod
+  a+rw /dev/ttyUSB0", or just run it as root "sudo libertyd <# stations>".
+
