@@ -353,7 +353,7 @@ int GetBinPno()
        
 
 
-#if 0
+#if 1
 	// X,Y,Z,azimuth,elevation,roll 
 
 	printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
