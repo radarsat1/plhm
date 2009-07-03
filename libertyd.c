@@ -351,6 +351,9 @@ int GetBinPno()
         // information that can be easily imported into matlab
         // to use: 1) uncomment 2) on command line, pipe output to text file
        
+
+
+#if 0
 	// X,Y,Z,azimuth,elevation,roll 
 
 	printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
@@ -359,12 +362,14 @@ int GetBinPno()
 	
 	// X,Y,Z only
 
-	//#if 0
+	
+
+
 	//	printf("%d, %.4f, %.4f, %.4f, %f\n", station,
 	//     pData[0], pData[1], pData[2], curtime);
 
         continue;
-	//#endif
+#endif
 
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
