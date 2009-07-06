@@ -342,7 +342,7 @@ int GetBinPno()
 
 
     for (int s = 0; s < numChannels; s++) {
-        float *pData = (float *) (buf + (8 + (6*4)) * (s));	// header is first 8 bytes
+        float *pData = (float *) (buf + (8 + (6*4)) * (s) + 8);	// header is first 8 bytes
 
         int station = buf[((8 + 6*4) * (s)) + 2];
         int size = (int)*(unsigned short*)(buf+(8+6*4)*s+6);
