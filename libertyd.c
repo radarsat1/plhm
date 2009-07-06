@@ -91,8 +91,8 @@ int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2 || atoi(argv[1]) <= 0) {
-        printf("Usage: %s <number of channels>\n", argv[0]);
+  if (argc != 3 || atoi(argv[1]) <= 0 || atoi(argv[2]) <0 || atoi(argv[2])>1) {
+        printf("Usage: %s <number of channels> <print location>\n (print location: 0 -> send over OSC port 9999, 1-> print to terminal)\n", argv[0]);
         exit(1);
     }
 
@@ -354,7 +354,7 @@ int GetBinPno()
        
 
 
-#if 1
+#if atoi(argv[2])
 	// X,Y,Z,azimuth,elevation,roll 
 
 	printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
