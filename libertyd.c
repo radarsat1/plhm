@@ -79,6 +79,7 @@ int device_open = 0;
 int data_good = 0;
 
 int numChannels;
+int printswitch;
 struct timeval prev;
 
 void liblo_error(int num, const char *msg, const char *path);
@@ -91,7 +92,7 @@ int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
 
 int main(int argc, char *argv[])
 {
-  if (argc != 3 || atoi(argv[1]) <= 0 || atoi(argv[2]) <0 || atoi(argv[2])>1) {
+  if (argc != 3 || atoi(argv[1]) <= 0 || atoi(argv[2]) < 0 || atoi(argv[2]) > 1) {
         printf("Usage: %s <number of channels> <print location>\n (print location: 0 -> send over OSC port 9999, 1-> print to terminal)\n", argv[0]);
         exit(1);
     }
@@ -99,6 +100,7 @@ int main(int argc, char *argv[])
     port = 0;
     host[0] = 0;
     numChannels = atoi(argv[1]);
+    printswitch = atoi(argv[2]);
 
     char choice[10];
     char buf[1000];
@@ -354,7 +356,7 @@ int GetBinPno()
        
 
 
-#if atoi(argv[2])
+	if (printswitch) {
 	// X,Y,Z,azimuth,elevation,roll 
 
 	printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
@@ -370,7 +372,7 @@ int GetBinPno()
 	//     pData[0], pData[1], pData[2], curtime);
 
         continue;
-#endif
+	}
 
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
