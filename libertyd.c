@@ -346,6 +346,7 @@ int GetBinPno()
 
         int station = buf[((8 + 6*4) * (s)) + 2];
         int size = (int)*(unsigned short*)(buf+(8+6*4)*s+6);
+        int error = (int)*(unsigned char*)(buf+(8+6*4)*s+4);
         
         // this line can be used to capture raw text file of marker
         // information that can be easily imported into matlab
