@@ -192,7 +192,10 @@ int main(int argc, char *argv[])
         // determine tracker type        
         write(wrPort, "\r", 1);	// this read/write is used to clear out the buffers
         read(rdPort, (void *) "buf", 100);	// just throw this data away
-        
+
+
+		write(wrPort, "P", strlen("P"));      // request data (stops continuous output)
+
         GetVerInfo(buf);
         if (strstr(buf, "Patriot"))
             strcpy(trakType, "Patriot");
@@ -207,7 +210,7 @@ int main(int argc, char *argv[])
         
         write(wrPort, "U1\r", strlen("U1\r"));  // set units to metric (centimetres)
         write(wrPort, "R3\r", strlen("R3\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
-
+                                                // which doesn't appear to actually work...
 
 	if(whichdata){
 	  write(wrPort, "O*,2,4\r", strlen("O*,2,4\r")); //2-> position, 4-> euler angles
@@ -219,6 +222,7 @@ int main(int argc, char *argv[])
         starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
         
         write(wrPort, "F1\r", 3);	// put tracker into binary mode
+		write(wrPort, "C\r", strlen("C\r"));       // request data
         while (started && !GetBinPno()) {}
         write(wrPort, "F0\r", 3);	// return tracker to ASCII
 
@@ -273,7 +277,8 @@ void GetPno()
     memset(buf, 0, 2000);
 
     count = 0;
-    write(wrPort, "P", 1);	// request data
+    write(wrPort, "P", 1);	// request data 
+
 
     // keep reading till the well has been dry for at least 5 attempts
     count = 0;
@@ -312,7 +317,7 @@ int GetBinPno()
     
     memset(buf, 0, 2000);
     
-    write(wrPort, "P", 1);	// request data
+    // write(wrPort, "P", 1);	// request data
     
     // keep reading till the well has been dry for at least 5 attempts
     count = start = 0;
