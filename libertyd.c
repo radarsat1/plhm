@@ -80,6 +80,7 @@ int data_good = 0;
 
 int numChannels;
 int printswitch;
+int whichdata; 
 struct timeval prev;
 
 void liblo_error(int num, const char *msg, const char *path);
@@ -92,15 +93,16 @@ int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
 
 int main(int argc, char *argv[])
 {
-  if (argc != 3 || atoi(argv[1]) <= 0 || atoi(argv[2]) < 0 || atoi(argv[2]) > 1) {
-        printf("Usage: %s <number of channels> <print location>\n (print location: 0 -> send over OSC port 9999, 1-> print to terminal)\n", argv[0]);
+  if (argc != 4 || atoi(argv[1]) <= 0 || atoi(argv[2]) < 0 || atoi(argv[2]) > 1 || atoi(argv[3]) < 0 || atoi(argv[3]) > 1) {
+        printf("Usage: %s <number of channels> <print location> <which data>\n (print location: 0 -> send over OSC port 9999, 1-> print to terminal)\n (which data: 0 -> X,Y,Z + timestamp only, 1 -> X,Y,Z, & Euler Angles + timestamp)\n", argv[0]);
         exit(1);
     }
 
     port = 0;
     host[0] = 0;
     numChannels = atoi(argv[1]);
-    printswitch = atoi(argv[2]);
+    printswitch = atoi(argv[2]); //routes data to the terminal or over OSC
+    whichdata = atoi(argv[3]);   //for outputting either 3DoF or 6DoF per marker + timestamp
 
     char choice[10];
     char buf[1000];
@@ -206,9 +208,12 @@ int main(int argc, char *argv[])
         write(wrPort, "U1\r", strlen("U1\r"));  // set units to metric (centimetres)
         write(wrPort, "R3\r", strlen("R3\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
 
-       
-        write(wrPort, "O*,2\r", strlen("O*,2\r")); //2-> position, 4-> euler angles
 
+	if(whichdata){
+	  write(wrPort, "O*,2,4\r", strlen("O*,2,4\r")); //2-> position, 4-> euler angles
+	}else{
+	  write(wrPort, "O*,2\r", strlen("O*,2\r")); 
+	}
 
         gettimeofday(&temp, NULL);
         starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
@@ -318,10 +323,10 @@ int GetBinPno()
             start += br;
         usleep(100);
     } while (((br > 0) || (count++ < 5))
-             && (start < (numChannels*(3*4+8))));
+             && (start < (numChannels*((3+3*whichdata)*4+8))));
 
-    // (numChannels*(6*4+8))
-    // -> 6 floats (position, orientation) * 4 bytes/float + 8 bytes for header
+    // (numChannels*(x*4+8)), x=3 or 6 
+    // -> x floats (position, orientation) * 4 bytes/float + 8 bytes for header
 
     br = start;
         
@@ -344,33 +349,30 @@ int GetBinPno()
 
 
     for (int s = 0; s < numChannels; s++) {
-        float *pData = (float *) (buf + (8 + (3*4)) * (s) + 8);	// header is first 8 bytes
+      float *pData = (float *) (buf + (8 + ((3+3*whichdata)*4)) * (s) + 8);	// header is first 8 bytes
 
-        int station = buf[((8 + 3*4) * (s)) + 2];
-        int size = (int)*(unsigned short*)(buf+(8+3*4)*s+6);
-        int error = (int)*(unsigned char*)(buf+(8+3*4)*s+4);
+      int station = buf[((8 + (3+3*whichdata)*4) * (s)) + 2];
+      int size = (int)*(unsigned short*)(buf+(8+(3+3*whichdata)*4)*s+6);
+      int error = (int)*(unsigned char*)(buf+(8+(3+3*whichdata)*4)*s+4);
         
-        // this line can be used to capture raw text file of marker
-        // information that can be easily imported into matlab
-        // to use: 1) uncomment 2) on command line, pipe output to text file
-       
+       	if (printswitch) {
 
+	  if(whichdata){
+	    // this line can be used to capture raw text file of marker
+	    // information that can be easily imported into matlab
+	    // to use: 1) uncomment 2) on command line, pipe output to text file
 
-	if (printswitch) {
-	// X,Y,Z,azimuth,elevation,roll 
+	    //X,Y,Z,azimuth,elevation,roll 
 
-	//printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
-        //       pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
-        //       curtime);
+	printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
+               pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
+               curtime);
+	  }else{
 	
-	// X,Y,Z only
-
-	
-
-
-	  printf("%d, %.4f, %.4f, %.4f, %f\n", station,
+	    // X,Y,Z only
+	    printf("%d, %.4f, %.4f, %.4f, %f\n", station,
 		pData[0], pData[1], pData[2], curtime);
-
+	  }
         continue;
 	}
 
@@ -438,69 +440,69 @@ int GetBinPno()
         }
         OSC_resetBuffer(b);
         
-        
-        //Azimuth message
-        sprintf(addr, "/liberty/marker/%d/azimuth", station);
-        
-        if (OSC_writeAddressAndTypes(b, addr, ",f")) {
+	if(whichdata){
+	  //Azimuth message
+	  sprintf(addr, "/liberty/marker/%d/azimuth", station);
+	  
+	  if (OSC_writeAddressAndTypes(b, addr, ",f")) {
             printf("** ERROR 1: %s\n", OSC_errorMessage);
-        }
-        
-        
-        if (OSC_writeFloatArg(b, pData[3])) {
+	  }
+	  
+	  
+	  if (OSC_writeFloatArg(b, pData[3])) {
             printf("** ERROR 2: %s\n", OSC_errorMessage);
-        }
-        //printf("Sending %d bytes\n", OSC_packetSize(b));
-        if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-                               (struct sockaddr *) &their_addr,
-			       sizeof(struct sockaddr))) == -1) {
+	  }
+	  //printf("Sending %d bytes\n", OSC_packetSize(b));
+	  if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
+				 (struct sockaddr *) &their_addr,
+				 sizeof(struct sockaddr))) == -1) {
             perror("sendto");
             exit(1);
-        }
-        OSC_resetBuffer(b);
-        
-        
-        //Elevation message
-        sprintf(addr, "/liberty/marker/%d/elevation", station);
-        
-        if (OSC_writeAddressAndTypes(b, addr, ",f")) {
+	  }
+	  OSC_resetBuffer(b);
+	  
+	  
+	  //Elevation message
+	  sprintf(addr, "/liberty/marker/%d/elevation", station);
+	  
+	  if (OSC_writeAddressAndTypes(b, addr, ",f")) {
             printf("** ERROR 1: %s\n", OSC_errorMessage);
-        }
-        
-
-        if (OSC_writeFloatArg(b, pData[4])) {
+	  }
+	  
+	  
+	  if (OSC_writeFloatArg(b, pData[4])) {
             printf("** ERROR 2: %s\n", OSC_errorMessage);
-        }
-        //printf("Sending %d bytes\n", OSC_packetSize(b));
-        if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-                               (struct sockaddr *) &their_addr,
-                               sizeof(struct sockaddr))) == -1) {
+	  }
+	  //printf("Sending %d bytes\n", OSC_packetSize(b));
+	  if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
+				 (struct sockaddr *) &their_addr,
+				 sizeof(struct sockaddr))) == -1) {
             perror("sendto");
             exit(1);
-        }
-        OSC_resetBuffer(b);
-        
-        
-        //Roll message
-        sprintf(addr, "/liberty/marker/%d/roll", station);
-        
-        if (OSC_writeAddressAndTypes(b, addr, ",f")) {
+	  }
+	  OSC_resetBuffer(b);
+	  
+	  
+	  //Roll message
+	  sprintf(addr, "/liberty/marker/%d/roll", station);
+	  
+	  if (OSC_writeAddressAndTypes(b, addr, ",f")) {
             printf("** ERROR 1: %s\n", OSC_errorMessage);
-        }
-        
-        
-        if (OSC_writeFloatArg(b, pData[5])) {
+	  }
+	  
+	  
+	  if (OSC_writeFloatArg(b, pData[5])) {
             printf("** ERROR 2: %s\n", OSC_errorMessage);
-        }
-        //printf("Sending %d bytes\n", OSC_packetSize(b));
-        if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-                               (struct sockaddr *) &their_addr,
-                               sizeof(struct sockaddr))) == -1) {
+	  }
+	  //printf("Sending %d bytes\n", OSC_packetSize(b));
+	  if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
+				 (struct sockaddr *) &their_addr,
+				 sizeof(struct sockaddr))) == -1) {
             perror("sendto");
             exit(1);
+	  }
+	  OSC_resetBuffer(b);
         }
-        OSC_resetBuffer(b);
-        
         
         //Timestamp message
         sprintf(addr, "/liberty/marker/%d/timestamp", station);
