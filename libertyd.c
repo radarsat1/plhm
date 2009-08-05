@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
         
         memset(buf, 0, 100);
         
-        write(wrPort, "H*,0,1,0\r", strlen("H*,0,0,-1\r"));
+        write(wrPort, "H*,0,1,0\r", strlen("H*,0,1,0\r"));
         
         write(wrPort, "U1\r", strlen("U1\r"));  // set units to metric (centimetres)
         write(wrPort, "R3\r", strlen("R3\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
