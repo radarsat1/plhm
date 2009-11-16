@@ -191,7 +191,8 @@ int main(int argc, char *argv[])
 
         // determine tracker type        
         write(wrPort, "\r", 1);	// this read/write is used to clear out the buffers
-        read(rdPort, (void *) "buf", 100);	// just throw this data away
+        if (read(rdPort, (void *) buf, 100) < 0)
+            perror("read");	// just throw this data away
 
 
 		write(wrPort, "P", strlen("P"));      // request data (stops continuous output)
