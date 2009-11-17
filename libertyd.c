@@ -50,7 +50,6 @@ double curtime;
 timeval temp;
 
 void GetPno();
-int GetBinPno();
 int GetVerInfo(char *);
 
 
@@ -91,6 +90,479 @@ int stop_handler(const char *path, const char *types, lo_arg **argv, int argc,
 int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
                    void *data, void *user_data);
 
+enum polhemus_tracker_type
+{
+    POLHEMUS_UNKNOWN,
+    POLHEMUS_LIBERTY,
+    POLHEMUS_PATRIOT,
+};
+
+enum polhemus_unit_type
+{
+    POLHEMUS_UNITS_METRIC,
+};
+
+enum polhemus_rate
+{
+    POLHEMUS_RATE_120,
+    POLHEMUS_RATE_240,
+};
+
+enum polhemus_data_fields
+{
+    POLHEMUS_DATA_POSITION = 1,
+    POLHEMUS_DATA_EULER = 2,
+    POLHEMUS_DATA_CRLF = 4,
+    POLHEMUS_DATA_TIMESTAMP = 8,
+    // more..
+};
+
+static const int RSPLEN = 1024;
+typedef struct _polhemus
+{
+    // input / output serial ports
+    int rd;
+    int wr;
+    char response[RSPLEN];
+    char buffer[RSPLEN];
+    int pos;
+    int response_length;
+    int device_open;
+    struct termios initialAtt;
+    polhemus_tracker_type tracker_type;
+    int fields;
+    int binary;
+    int stations;
+} polhemus_t;
+
+#ifdef DEBUG
+static void traceit(const char* str, const char* prefix)
+{
+    char tmp[1024], *t=tmp;
+    const char *s = str;
+    while (*s) {
+        if (*s == '\r') {
+            *t++ = '\\';
+            *t++ = 'r';
+            s++;
+        }
+        else if (*s == '\n') {
+            *t++ = '\\';
+            *t++ = 'n';
+            *t++ = '\n';
+            *t++ = '>';
+            *t++ = ' ';
+            s++;
+        }
+        else if (!isprint(*s)) {
+            sprintf(t, "\\x%02x", *s++);
+            t += 4;
+        }
+        else
+            *t++ = *s++;
+    }
+    *t++ = 0;
+    printf("%s: %s\n", prefix, tmp);
+}
+static void tracecmd(const char* cmd)
+{
+    traceit(cmd, "cmd");
+}
+static void tracersp(const char* rsp)
+{
+    traceit(rsp, "rsp");
+}
+#define trace(...) printf(__VA_ARGS__)
+#else
+#define tracecmd(a)
+#define tracersp(a)
+#define trace(...)
+#endif
+
+static int read_oneline(polhemus_t *p)
+{
+    int rc;
+    int count=0;
+
+    while (count++ < 5)
+    {
+        if (p->pos > 0) {
+            const char *c = strchr(p->buffer, '\r');
+            if (c) {
+                /* copy from buffer into response, then move
+                   everything after it to the beginning of
+                   buffer */
+                char tmp[RSPLEN];
+                p->response_length = c - p->buffer;
+                memcpy(p->response, p->buffer, p->response_length);
+                p->response[p->response_length] = 0;
+                strcpy(tmp, c+2);
+                strcpy(p->buffer, tmp);
+                p->pos = strlen(p->buffer);
+                tracersp(p->response);
+                return 0;
+            }
+        }
+
+        rc = read(p->rd, &p->buffer[p->pos], RSPLEN - p->pos);
+        if (rc >= 0) {
+            p->pos += rc;
+            continue;
+        }
+        if (errno == EAGAIN) {
+            usleep(100000);
+            continue;
+        }
+        else {
+            printf("[error %d] ", errno);
+            fflush(stdout);
+            perror("read");
+            return 2;
+        }
+    }
+    printf("Timed out while reading a line.\n");
+    return 1;
+}
+
+static int read_until_timeout(polhemus_t *p, int ms)
+{
+    // TODO: check if anything is in p->buffer
+
+    int rc, count=0, pos=0;
+    while (count++ < (ms/5))
+    {
+        rc = read(p->rd, p->response+pos, RSPLEN);
+        if (rc >= 0) {
+            pos += rc;
+            continue;
+        }
+        if (errno == EAGAIN) {
+            usleep(5000);
+            continue;
+        }
+        else {
+            printf("[error %d] ", errno);
+            fflush(stdout);
+            perror("read");
+            return 2;
+        }
+    }
+
+    // should have read something, otherwise error
+    if (pos) {
+        p->response_length = pos;
+        p->response[pos] = 0;
+        tracersp(p->response);
+        return 0;
+    }
+    return 1;
+}
+
+static int read_bytes(polhemus_t *p, int bytes)
+{
+    int rc;
+    int count=0;
+
+    while (count++ < 5)
+    {
+        if (p->pos > 0) {
+            if (p->pos >= bytes) {
+                const char *c = p->buffer + bytes;
+
+                /* copy from buffer into response, then move
+                   everything after it to the beginning of
+                   buffer */
+                char tmp[RSPLEN];
+                p->response_length = bytes;
+                int left = p->pos - bytes;
+                memcpy(p->response, p->buffer, bytes);
+                p->response[bytes] = 0;
+                memcpy(tmp, c, left);
+                memcpy(p->buffer, tmp, left);
+                p->pos = left;
+                tracersp(p->response);
+                return 0;
+            }
+        }
+
+        rc = read(p->rd, &p->buffer[p->pos], RSPLEN - p->pos);
+        if (rc >= 0) {
+            p->pos += rc;
+            continue;
+        }
+        if (errno == EAGAIN) {
+            usleep(100000);
+            continue;
+        }
+        else {
+            printf("[error %d] ", errno);
+            fflush(stdout);
+            perror("read");
+            return 2;
+        }
+    }
+    printf("Timed out while reading.\n");
+    return 1;
+}
+
+static int open_device(polhemus_t *p, const char *device)
+{
+    struct termios newAtt;
+    device_open = 0;
+    p->device_open = 0;
+
+    if (p->device_open)
+        return 0;
+
+    // Open serial device for reading and writing
+    p->rd = open(device, O_RDONLY | O_NDELAY);
+    if (p->rd == -1) {
+        printf("Could not open device %s for reading.\n", device);
+        perror("open (rd)");
+        device_open = 0;
+        return 1;
+    }
+
+    p->wr = open(device, O_WRONLY);
+    if (p->wr == -1) {
+        printf("Could not open device %s for writing.\n", device);
+        perror("open (wr)");
+        close(p->rd);
+        device_open = 0;
+        return 1;
+    }
+
+    // set up terminal for raw data
+    tcgetattr(p->rd, &p->initialAtt);	// save this to restore later
+    newAtt = p->initialAtt;
+    cfmakeraw(&newAtt);
+    if (tcsetattr(p->rd, TCSANOW, &newAtt)) {
+        printf("Error setting terminal attributes\n");
+        fflush(stdout);
+        perror("tcsetattr");
+        close(p->rd);
+        close(p->wr);
+        return 2;
+    }
+
+    device_open = 1;
+    p->device_open = 1;
+    return 0;
+}
+
+static int close_device(polhemus_t *p)
+{
+    if (!device_open)
+        return 0;
+
+    // restore the original attributes
+    tcsetattr(p->rd, TCSANOW, &p->initialAtt);
+
+    close(p->rd);
+    close(p->wr);
+
+    p->device_open = 0;
+    device_open = 0;
+    return 0;
+}
+
+static int is_initialized(polhemus_t *p)
+{
+    return p->device_open;
+}
+
+static int find_device(const char *device)
+{
+    struct stat st;
+    if (stat(device, &st) == -1) {
+        device_found = 0;
+        return 1;
+    }
+    device_found = 1;
+    return 0;
+}
+
+static void command(polhemus_t *p, const char *cmd)
+{
+    tracecmd(cmd);
+    write(p->wr, cmd, strlen(cmd));
+}
+
+static int cmd_read_bits(polhemus_t *p)
+{
+    command(p, "\x14\r");
+    return read_until_timeout(p, 100);
+}
+
+static int cmd_get_station_info(polhemus_t *p, int station)
+{
+    char cmd[50];
+    sprintf(cmd, "\x16%d\r", station+1);
+    command(p, cmd);
+    if (read_until_timeout(p, 100))
+        return 1;
+    if (strstr(p->response, "ID:0\r"))
+        return -1;
+    return 0;
+}
+
+static int read_data_record(polhemus_t *p)
+{
+    if (p->binary) {
+        int bytes = 0;
+        if (p->fields & POLHEMUS_DATA_POSITION)
+            bytes += 20;
+        if (p->fields & POLHEMUS_DATA_EULER)
+            bytes += 12;
+        if (p->fields & POLHEMUS_DATA_TIMESTAMP)
+            bytes += 4;
+        if (p->fields & POLHEMUS_DATA_CRLF)
+            bytes += 2;
+
+        return read_bytes(p, bytes);
+    } else
+        return read_until_timeout(p, 100);
+}
+
+static int cmd_data_request(polhemus_t *p)
+{
+    command(p, "P");
+    return 0;
+}
+
+static int cmd_data_request_continuous(polhemus_t *p)
+{
+    read_until_timeout(p, 100);
+    command(p, "C\r");
+    return 0;
+}
+
+static int cmd_get_stations(polhemus_t *p)
+{
+    // check which stations are plugged in for now, we'll assume
+    // stations are plugged in from left to right, and that there
+    // are only 8 max stations.
+    for (p->stations=0; p->stations<8; p->stations++) {
+        int rc = cmd_get_station_info(p, p->stations);
+        if (rc < 0)
+            break;
+        else if (rc > 0)
+            return rc;
+    }
+    if (p->stations == 0) {
+        printf("No stations detected.\n");
+        return 1;
+    }
+    else
+        trace("%d station%s detected.\n", p->stations, p->stations>1?"s":"");
+    return 0;
+}
+
+static int cmd_text_mode(polhemus_t *p)
+{
+    command(p, "F0\r");
+    // no response
+    p->binary = 0;
+    return 0;
+}
+
+static int cmd_binary_mode(polhemus_t *p)
+{
+    command(p, "F1\r");
+    // no response
+    p->binary = 1;
+    return 0;
+}
+
+static int cmd_get_version(polhemus_t *p)
+{
+    char cmd[10];
+    sprintf(cmd, "%c\r", 22);
+    command(p, cmd);
+    if (read_until_timeout(p, 100))
+        return 1;
+
+    if (strstr(p->response, "Patriot"))
+        p->tracker_type = POLHEMUS_PATRIOT;
+    else if (strstr(p->response, "Liberty"))
+        p->tracker_type = POLHEMUS_LIBERTY;
+    else
+        p->tracker_type = POLHEMUS_UNKNOWN;
+    return 0;
+}
+
+static int cmd_set_hemisphere(polhemus_t *p)
+{
+    command(p, "H*,0,1,0\r");
+    // no response
+    return 0;
+}
+
+static int cmd_set_units(polhemus_t *p, polhemus_unit_type units)
+{
+    switch (units)
+    {
+    case POLHEMUS_UNITS_METRIC:
+        command(p, "U1\r");
+        break;
+    default:
+        printf("Unknown units specified.\n");
+        break;
+    }
+    // no response
+    return 0;
+}
+
+static int cmd_set_rate(polhemus_t *p, polhemus_rate rate)
+{
+    switch (rate)
+    {
+    case POLHEMUS_RATE_120:
+        command(p, "R3\r");
+        break;
+    case POLHEMUS_RATE_240:
+        command(p, "R4\r");
+        break;
+    default:
+        printf("Unknown rate specified.\n");
+        break;
+    }
+    // no response
+    return 0;
+}
+
+static int cmd_set_data_fields(polhemus_t *p, int fields)
+{
+    char cmd[1024];
+    cmd[0] = 0;
+    strcat(cmd, "O*");
+
+    if (fields & POLHEMUS_DATA_POSITION)
+        strcat(cmd, ",2");
+
+    if (fields & POLHEMUS_DATA_EULER)
+        strcat(cmd, ",4");
+
+    if (fields & POLHEMUS_DATA_TIMESTAMP)
+        strcat(cmd, ",8");
+
+    // ",1" indicates that lines should be terminated with cr/lf
+    if (fields & POLHEMUS_DATA_CRLF)
+        strcat(cmd, ",1");
+
+    strcat(cmd, "\r");
+    command(p, cmd);
+    // no response
+    p->fields = fields;
+
+    // for some reason we need to wait after setting the fields
+    usleep(100000);
+
+    return 0;
+}
+
+int GetBinPno(polhemus_t *pol);
+
 int main(int argc, char *argv[])
 {
   if (argc != 4 || atoi(argv[1]) <= 0 || atoi(argv[2]) < 0 || atoi(argv[2]) > 1 || atoi(argv[3]) < 0 || atoi(argv[3]) > 1) {
@@ -108,8 +580,10 @@ int main(int argc, char *argv[])
     char buf[1000];
     char trakType[30];
     int br;
-    struct termios initialAtt, newAtt;
     int slp = 0;
+
+    polhemus_t pol;
+    memset((void*)&pol, 0, sizeof(polhemus_t));
 
     // setup OSC server
     lo_server_thread st = lo_server_thread_new("5000", liblo_error);
@@ -129,34 +603,15 @@ int main(int argc, char *argv[])
         slp = 1;
         
         // Loop until device is available.
-        struct stat st;
-        if (stat(DEVICENAME, &st) == -1) {
-            device_found = 0;
+        if (find_device(DEVICENAME))
             continue;
-        }
-        device_found = 1;
 
         // Don't open device if nobody is listening
         if (!started || port==0)
             continue;
 
-        // Open serial device for reading and writing
-        rdPort = open(DEVICENAME, O_RDONLY | O_NDELAY);
-        if (rdPort == -1) {
-            printf("Could not open device %s for reading.\n", DEVICENAME);
-            device_open = 0;
-            exit(1);
-        }
-
-        wrPort = open(DEVICENAME, O_WRONLY);
-        if (wrPort == -1) {
-            printf("Could not open device %s for writing.\n", DEVICENAME);
-            close(rdPort);
-            device_open = 0;
-            exit(1);
-        }
-
-        device_open = 1;
+        if (open_device(&pol, DEVICENAME))
+            continue;
 
         // init sock & OSC stuff
         {
@@ -178,61 +633,79 @@ int main(int argc, char *argv[])
             memset(&(their_addr.sin_zero), '\0', 8);	// zero the rest of the struct
         }
 
-        // set up terminal for raw data
-        tcgetattr(rdPort, &initialAtt);	// save this to restore later
-        newAtt = initialAtt;
-        cfmakeraw(&newAtt);
-        if (tcsetattr(rdPort, TCSANOW, &newAtt)) {
-            printf("Error setting terminal attributes\n");
-            close(rdPort);
-            close(wrPort);
-            exit(2);
-        }
+        // stop any incoming continuous data just in case
+        // ignore the response
+        if (cmd_data_request(&pol))
+            break;
+
+        read_until_timeout(&pol, 500);
+
+        if (cmd_text_mode(&pol))
+            break;
 
         // determine tracker type        
-        write(wrPort, "\r", 1);	// this read/write is used to clear out the buffers
-        if (read(rdPort, (void *) buf, 100) < 0)
-            perror("read");	// just throw this data away
+        if (cmd_get_version(&pol))
+            break;
 
+        // check for initialization errors
+        if (cmd_read_bits(&pol))
+            break;
 
-		write(wrPort, "P", strlen("P"));      // request data (stops continuous output)
+        // check what stations are available
+        if (cmd_get_stations(&pol))
+            break;
 
-        GetVerInfo(buf);
-        if (strstr(buf, "Patriot"))
-            strcpy(trakType, "Patriot");
-        else if (strstr(buf, "Liberty"))
-            strcpy(trakType, "Liberty");
-        else
-            strcpy(trakType, "Unknown tracker");
-        
-        memset(buf, 0, 100);
-        
-        write(wrPort, "H*,0,1,0\r", strlen("H*,0,1,0\r"));
-        
-        write(wrPort, "U1\r", strlen("U1\r"));  // set units to metric (centimetres)
-        write(wrPort, "R3\r", strlen("R3\r"));  // set the update rate to 240 Hz (R4), 120 Hz (R3)
-                                                // which doesn't appear to actually work...
+        if (cmd_set_hemisphere(&pol))
+            break;
 
-	if(whichdata){
-	  write(wrPort, "O*,2,4\r", strlen("O*,2,4\r")); //2-> position, 4-> euler angles
-	}else{
-	  write(wrPort, "O*,2\r", strlen("O*,2\r")); 
-	}
+        if (cmd_set_units(&pol, POLHEMUS_UNITS_METRIC))
+            break;
+
+        if (cmd_set_rate(&pol, POLHEMUS_RATE_240))
+            break;
+
+        if (whichdata) {
+            if (cmd_set_data_fields(&pol,
+                                    POLHEMUS_DATA_POSITION
+                                    | POLHEMUS_DATA_EULER
+                                    | POLHEMUS_DATA_TIMESTAMP))
+                break;
+        } else {
+            if (cmd_set_data_fields(&pol,
+                                    POLHEMUS_DATA_POSITION
+                                    | POLHEMUS_DATA_TIMESTAMP))
+                break;
+        }
 
         gettimeofday(&temp, NULL);
         starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
-        
-        write(wrPort, "F1\r", 3);	// put tracker into binary mode
-		write(wrPort, "C\r", strlen("C\r"));       // request data
-        while (started && !GetBinPno()) {}
-        write(wrPort, "F0\r", 3);	// return tracker to ASCII
 
-        tcsetattr(rdPort, TCSANOW, &initialAtt);	// restore the original attributes
-        close(rdPort);
-        close(wrPort);
-        
+        if (cmd_binary_mode(&pol))
+            break;
+
+        if (cmd_data_request_continuous(&pol))
+            break;
+
+        /* loop getting data until stop is requested or error occurs */
+        while (started && !GetBinPno(&pol)) {}
+
+        // stop any incoming continuous data
+        if (cmd_data_request(&pol))
+            break;
+
+        read_until_timeout(&pol, 500);
+        read_until_timeout(&pol, 500);
+        read_until_timeout(&pol, 500);
+
+        if (cmd_text_mode(&pol))
+            break;
+
+        close_device(&pol);
         close(sockfd);
     }
+
+    close_device(&pol);
+    close(sockfd);
 
     return 0;
 }
@@ -296,91 +769,117 @@ void GetPno()
     printf(buf);
 }
 
-int GetBinPno()
+typedef union {
+    const int *i;
+    const unsigned int *ui;
+    const short *s;
+    const unsigned short *us;
+    const float *f;
+    const char *c;
+    const unsigned char *uc;
+} multiptr;
+
+int GetBinPno(polhemus_t *pol)
 {
-    char buf[2000];
+    const char *buf;
     char hex[4000];
     char tmp[10];
     int i = 0;
     int br, count, start;
     struct timeval now, diff;
 
-    gettimeofday(&now, NULL);
-    timeval_subtract(&diff, &now, &prev);
-    prev.tv_sec = now.tv_sec;
-    prev.tv_usec = now.tv_usec;
-
     static int c=0;
     if (c++ > 30) {
-        fprintf(stderr, "Update frequency: %0.2f Hz           \r", 1.0 / (diff.tv_usec/1000000.0 + diff.tv_sec));
+        gettimeofday(&now, NULL);
+        timeval_subtract(&diff, &now, &prev);
+        prev.tv_sec = now.tv_sec;
+        prev.tv_usec = now.tv_usec;
+
+        fprintf(stderr, "Update frequency: %0.2f Hz           \r",
+                30.0 / (diff.tv_usec/1000000.0 + diff.tv_sec));
         c=0;
     }
-    
-    memset(buf, 0, 2000);
-    
-    // write(wrPort, "P", 1);	// request data
-    
-    // keep reading till the well has been dry for at least 5 attempts
-    count = start = 0;
-    usleep(100);
-    do {
-        br = read(rdPort, buf + start, 2000 - start);
-        if (br > 0)
-            start += br;
-        usleep(100);
-    } while (((br > 0) || (count++ < 5))
-             && (start < (numChannels*((3+3*whichdata)*4+8))));
 
-    // (numChannels*(x*4+8)), x=3 or 6 
-    // -> x floats (position, orientation) * 4 bytes/float + 8 bytes for header
+/*     cmd_data_request(pol); */
 
-    br = start;
-        
-    
-    // check for proper format LY for Liberty
-    if (strncmp(buf, "LY", 2) && strncmp(buf, "PA", 2)) {
-        // PA for Patriot
-        data_good = 0;
-        printf("Corrupted data received\n");
-        printf("%s\n", buf);
-        return 1;
-    }
-    data_good = 1;
-    
     gettimeofday(&temp, NULL);
     curtime = ((temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0)) - starttime;
     
     //system("clear");
     //printf("Time: %ld \n", curtime);
 
+    const float *pData;
 
-    for (int s = 0; s < numChannels; s++) {
-      float *pData = (float *) (buf + (8 + ((3+3*whichdata)*4)) * (s) + 8);	// header is first 8 bytes
+    multiptr p;
+    for (int s = 0; s < pol->stations; s++)
+    {
+        if (read_data_record(pol))
+            return 1;
 
-      int station = buf[((8 + (3+3*whichdata)*4) * (s)) + 2];
-      int size = (int)*(unsigned short*)(buf+(8+(3+3*whichdata)*4)*s+6);
-      int error = (int)*(unsigned char*)(buf+(8+(3+3*whichdata)*4)*s+4);
-        
-       	if (printswitch) {
+        p.c = pol->response;
+        trace("response: %d bytes\n", pol->response_length);
 
-	  if(whichdata){
-	    // this line can be used to capture raw text file of marker
-	    // information that can be easily imported into matlab
-	    // to use: 1) uncomment 2) on command line, pipe output to text file
+        if (strncmp(p.c, "LY", 2)) {
+            printf("LY expected, got %c%c.\n",
+                   ((*p.s >> 0) & 0xFF),
+                   ((*p.s >> 8) & 0xFF));
+            return 1;
+        }
+        p.c += 2;
 
-	    //X,Y,Z,azimuth,elevation,roll 
+        int station = *p.c;
+        trace("station %d\n", station);
+        p.c += 1;
 
-	printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %f\n", station,
-               pData[0], pData[1], pData[2], pData[3], pData[4], pData[5],
-               curtime);
-	  }else{
-	
-	    // X,Y,Z only
-	    printf("%d, %.4f, %.4f, %.4f, %f\n", station,
-		pData[0], pData[1], pData[2], curtime);
-	  }
-        continue;
-	}
+        // skip initiating command
+        p.c += 1;
+
+        int error = *p.c;
+        if (error != ' ')
+            printf("error %d ('%c') detected for station.\n",
+                   error, error, station);
+        p.c += 1;
+
+        // skip reserved byte
+        p.c += 1;
+
+        int size = *p.s;
+        trace("size: %d\n", size);
+        p.s += 1;
+
+        pData = p.f;
+
+        if (whichdata) {
+            p.f += 6;
+        } else {
+            p.f += 3;
+        }
+
+        // timestamp:
+        unsigned int timestamp = 0;
+        if (pol->fields & POLHEMUS_DATA_TIMESTAMP) {
+            timestamp = *p.ui;
+        }
+
+        if (whichdata) {
+            //X,Y,Z,azimuth,elevation,roll 
+            if (printswitch)
+                printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %f\n",
+                       station, pData[0], pData[1], pData[2], pData[3],
+                       pData[4], pData[5], timestamp, curtime);
+        } else {
+            // X,Y,Z only
+            if (printswitch)
+                printf("%d, %.4f, %.4f, %.4f, %d, %f\n", station,
+                       pData[0], pData[1], pData[2], timestamp, curtime);
+        }
+
+        // skip cr/lf
+        if (pol->fields & POLHEMUS_DATA_CRLF)
+            p.c += 2;
+
+        if (printswitch)
+            continue;
 
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           

@@ -6,7 +6,7 @@ TARGET=libertyd
 LIBS=-llo
 
 ifdef DEBUG
-CFLAGS=-ggdb -Wall
+CFLAGS=-ggdb -Wall -DDEBUG
 else
 CFLAGS=-O3 -Wall
 endif
