@@ -79,7 +79,8 @@ int data_good = 0;
 
 int numChannels;
 int printswitch;
-int whichdata; 
+int whichdata;
+int hexfloats=1;
 struct timeval prev;
 
 void liblo_error(int num, const char *msg, const char *path);
@@ -565,8 +566,14 @@ int GetBinPno(polhemus_t *pol);
 
 int main(int argc, char *argv[])
 {
-  if (argc != 4 || atoi(argv[1]) <= 0 || atoi(argv[2]) < 0 || atoi(argv[2]) > 1 || atoi(argv[3]) < 0 || atoi(argv[3]) > 1) {
-        printf("Usage: %s <number of channels> <print location> <which data>\n (print location: 0 -> send over OSC port 9999, 1-> print to terminal)\n (which data: 0 -> X,Y,Z + timestamp only, 1 -> X,Y,Z, & Euler Angles + timestamp)\n", argv[0]);
+  if (argc < 4 || atoi(argv[1]) <= 0 || atoi(argv[2]) < 0 || atoi(argv[2]) > 1 || atoi(argv[3]) < 0 || atoi(argv[3]) > 1) {
+        printf("Usage: %s <number of channels> <print location> <which data> "
+               "<hexfloat>\n (print location: 0 -> send over OSC "
+               "port 9999, 1-> print to terminal)\n (which data: 0 -> "
+               "X,Y,Z + timestamp only, 1 -> X,Y,Z, & Euler Angles + "
+               "timestamp)\n"
+               " (hexfloat: 0 -> print floats in decimal, 1 -> in hex)\n\n",
+               argv[0]);
         exit(1);
     }
 
@@ -575,6 +582,9 @@ int main(int argc, char *argv[])
     numChannels = atoi(argv[1]);
     printswitch = atoi(argv[2]); //routes data to the terminal or over OSC
     whichdata = atoi(argv[3]);   //for outputting either 3DoF or 6DoF per marker + timestamp
+
+    if (argc > 4)
+        hexfloats = atoi(argv[4]);
 
     char choice[10];
     char buf[1000];
@@ -863,15 +873,41 @@ int GetBinPno(polhemus_t *pol)
 
         if (whichdata) {
             //X,Y,Z,azimuth,elevation,roll 
-            if (printswitch)
-                printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %f\n",
-                       station, pData[0], pData[1], pData[2], pData[3],
-                       pData[4], pData[5], timestamp, curtime);
+            if (printswitch) {
+                if (hexfloats) {
+                    int i;
+                    printf("%d", station);
+                    for (i=0; i<6; i++)
+                        printf(", 0x%02x%02x%02x%02x",
+                               ((*(int*)&pData[i])>>24) & 0xFF,
+                               ((*(int*)&pData[i])>>16) & 0xFF,
+                               ((*(int*)&pData[i])>> 8) & 0xFF,
+                               ((*(int*)&pData[i])>> 0) & 0xFF);
+                    printf(", %d, %f\n", timestamp, curtime);
+                } else {
+                    printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %f\n",
+                           station, pData[0], pData[1], pData[2], pData[3],
+                           pData[4], pData[5], timestamp, curtime);
+                }
+            }
         } else {
             // X,Y,Z only
-            if (printswitch)
-                printf("%d, %.4f, %.4f, %.4f, %d, %f\n", station,
-                       pData[0], pData[1], pData[2], timestamp, curtime);
+            if (printswitch) {
+                if (hexfloats) {
+                    int i;
+                    printf("%d", station);
+                    for (i=0; i<3; i++)
+                        printf(", 0x%02x%02x%02x%02x",
+                               ((*(int*)&pData[i])>>24) & 0xFF,
+                               ((*(int*)&pData[i])>>16) & 0xFF,
+                               ((*(int*)&pData[i])>> 8) & 0xFF,
+                               ((*(int*)&pData[i])>> 0) & 0xFF);
+                    printf(", %d, %f\n", timestamp, curtime);
+                } else {
+                    printf("%d, %.4f, %.4f, %.4f, %d, %f\n", station,
+                           pData[0], pData[1], pData[2], timestamp, curtime);
+                }
+            }
         }
 
         // skip cr/lf
