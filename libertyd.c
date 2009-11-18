@@ -50,7 +50,6 @@ double curtime;
 timeval temp;
 
 void GetPno();
-int GetVerInfo(char *);
 
 
 int rdPort, wrPort;
@@ -1094,34 +1093,6 @@ int GetBinPno(polhemus_t *pol)
     }
 
     return 0;
-}
-
-// return version info in info
-// if info is NULL, just write the info to the screen
-// return 0 for success, -1 for failure
-int GetVerInfo(char *info)
-{
-    char cmd[10];
-    char buf[2000];
-    int br;
-    int rv = 0;
-    memset(buf, 0, 2000);
-    sprintf(cmd, "%c\r", 22);
-    write(wrPort, cmd, strlen(cmd));
-    usleep(100000);		// wait 100 ms
-    br = read(rdPort, buf, 2000);
-    if (br >= 0) {
-        if (info)
-            strcpy(info, buf);
-        else
-            printf(buf);
-    }
-    else {
-        printf("Error obtaining version information\n");
-        rv = -1;
-    }
-
-    return rv;
 }
 
 void liblo_error(int num, const char *msg, const char *path)
