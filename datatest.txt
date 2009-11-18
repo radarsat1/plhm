@@ -1,2 +1,0 @@
-Error connecting to tracker.
-Are you logged in as root?
