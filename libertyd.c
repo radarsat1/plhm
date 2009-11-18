@@ -136,6 +136,17 @@ typedef struct _polhemus
     int stations;
 } polhemus_t;
 
+typedef struct _polhemus_record
+{
+    int fields;
+    int station;
+    int error;
+    float position[3];
+    float euler[3];
+    unsigned int timestamp;
+    struct timeval readtime;
+} polhemus_record_t;
+
 #ifdef DEBUG
 static void traceit(const char* str, const char* prefix)
 {
@@ -407,10 +418,23 @@ static int cmd_get_station_info(polhemus_t *p, int station)
     return 0;
 }
 
-static int read_data_record(polhemus_t *p)
+typedef union {
+    const int *i;
+    const unsigned int *ui;
+    const short *s;
+    const unsigned short *us;
+    const float *f;
+    const char *c;
+    const unsigned char *uc;
+} multiptr;
+
+static int read_data_record(polhemus_t *p, polhemus_record_t *r)
 {
+    int rc, bytes;
+    multiptr data;
+
     if (p->binary) {
-        int bytes = 0;
+        bytes = 0;
         if (p->fields & POLHEMUS_DATA_POSITION)
             bytes += 20;
         if (p->fields & POLHEMUS_DATA_EULER)
@@ -420,7 +444,67 @@ static int read_data_record(polhemus_t *p)
         if (p->fields & POLHEMUS_DATA_CRLF)
             bytes += 2;
 
-        return read_bytes(p, bytes);
+        rc = read_bytes(p, bytes);
+        if (rc) return rc;
+
+        gettimeofday(&r->readtime, NULL);
+
+        r->fields = p->fields;
+        data.c = p->response;
+
+        if (p->response_length != bytes) {
+            trace("response not the expected length.  got %d bytes, "
+                  "but expected %d\n", pol->response_length, bytes);
+            return 1;
+        }
+
+        if (strncmp(data.c, "LY", 2)) {
+            printf("LY expected, got %c%c.\n",
+                   ((*data.s >> 0) & 0xFF),
+                   ((*data.s >> 8) & 0xFF));
+            return 1;
+        }
+        data.c += 2;
+
+        r->station = *data.c;
+        trace("station %d\n", station);
+        data.c += 1;
+
+        // skip initiating command
+        data.c += 1;
+
+        r->error = *data.c;
+        if (r->error != ' ')
+            printf("error %d ('%c') detected for station.\n",
+                   r->error, r->error, r->station);
+        data.c += 1;
+
+        // skip reserved byte
+        data.c += 1;
+
+        int size = *data.s;
+        trace("size: %d\n", size);
+        data.s += 1;
+
+        if (p->fields & POLHEMUS_DATA_POSITION) {
+            r->position[0] = *data.f++;
+            r->position[1] = *data.f++;
+            r->position[2] = *data.f++;
+        }
+
+        if (p->fields & POLHEMUS_DATA_EULER) {
+            r->euler[0] = *data.f++;
+            r->euler[1] = *data.f++;
+            r->euler[2] = *data.f++;
+        }
+
+        if (p->fields & POLHEMUS_DATA_TIMESTAMP) {
+            r->timestamp = *data.ui++;
+        }
+
+        // skip cr/lf
+        if (p->fields & POLHEMUS_DATA_CRLF)
+            data.c += 2;
     } else
         return read_until_timeout(p, 100);
 }
@@ -779,16 +863,6 @@ void GetPno()
     printf(buf);
 }
 
-typedef union {
-    const int *i;
-    const unsigned int *ui;
-    const short *s;
-    const unsigned short *us;
-    const float *f;
-    const char *c;
-    const unsigned char *uc;
-} multiptr;
-
 int GetBinPno(polhemus_t *pol)
 {
     const char *buf;
@@ -811,111 +885,64 @@ int GetBinPno(polhemus_t *pol)
     }
 
 /*     cmd_data_request(pol); */
-
-    gettimeofday(&temp, NULL);
-    curtime = ((temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0)) - starttime;
     
     //system("clear");
     //printf("Time: %ld \n", curtime);
 
     const float *pData;
+    polhemus_record_t rec;
 
-    multiptr p;
     for (int s = 0; s < pol->stations; s++)
     {
-        if (read_data_record(pol))
+        if (read_data_record(pol, &rec))
             return 1;
 
-        p.c = pol->response;
-        trace("response: %d bytes\n", pol->response_length);
+        curtime = ((rec.readtime.tv_sec * 1000.0)
+                   + (rec.readtime.tv_usec / 1000.0));
 
-        if (strncmp(p.c, "LY", 2)) {
-            printf("LY expected, got %c%c.\n",
-                   ((*p.s >> 0) & 0xFF),
-                   ((*p.s >> 8) & 0xFF));
-            return 1;
-        }
-        p.c += 2;
+        printf("%d", rec.station);
 
-        int station = *p.c;
-        trace("station %d\n", station);
-        p.c += 1;
-
-        // skip initiating command
-        p.c += 1;
-
-        int error = *p.c;
-        if (error != ' ')
-            printf("error %d ('%c') detected for station.\n",
-                   error, error, station);
-        p.c += 1;
-
-        // skip reserved byte
-        p.c += 1;
-
-        int size = *p.s;
-        trace("size: %d\n", size);
-        p.s += 1;
-
-        pData = p.f;
-
-        if (whichdata) {
-            p.f += 6;
-        } else {
-            p.f += 3;
+        if (rec.fields & POLHEMUS_DATA_POSITION)
+        {
+            if (hexfloats)
+                for (i=0; i<3; i++)
+                    printf(", 0x%02x%02x%02x%02x",
+                           ((*(int*)&rec.position[i])>>24) & 0xFF,
+                           ((*(int*)&rec.position[i])>>16) & 0xFF,
+                           ((*(int*)&rec.position[i])>> 8) & 0xFF,
+                           ((*(int*)&rec.position[i])>> 0) & 0xFF);
+            else
+                printf(", %.4f, %.4f, %.4f",
+                       rec.position[0],
+                       rec.position[1],
+                       rec.position[2]);
         }
 
-        // timestamp:
-        unsigned int timestamp = 0;
-        if (pol->fields & POLHEMUS_DATA_TIMESTAMP) {
-            timestamp = *p.ui;
+        if (rec.fields & POLHEMUS_DATA_EULER)
+        {
+            if (hexfloats)
+                for (i=0; i<3; i++)
+                    printf(", 0x%02x%02x%02x%02x",
+                           ((*(int*)&rec.euler[i])>>24) & 0xFF,
+                           ((*(int*)&rec.euler[i])>>16) & 0xFF,
+                           ((*(int*)&rec.euler[i])>> 8) & 0xFF,
+                           ((*(int*)&rec.euler[i])>> 0) & 0xFF);
+            else
+                printf(", %.4f, %.4f, %.4f",
+                       rec.euler[0],
+                       rec.euler[1],
+                       rec.euler[2]);
         }
 
-        if (whichdata) {
-            //X,Y,Z,azimuth,elevation,roll 
-            if (printswitch) {
-                if (hexfloats) {
-                    int i;
-                    printf("%d", station);
-                    for (i=0; i<6; i++)
-                        printf(", 0x%02x%02x%02x%02x",
-                               ((*(int*)&pData[i])>>24) & 0xFF,
-                               ((*(int*)&pData[i])>>16) & 0xFF,
-                               ((*(int*)&pData[i])>> 8) & 0xFF,
-                               ((*(int*)&pData[i])>> 0) & 0xFF);
-                    printf(", %d, %f\n", timestamp, curtime);
-                } else {
-                    printf("%d, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %d, %f\n",
-                           station, pData[0], pData[1], pData[2], pData[3],
-                           pData[4], pData[5], timestamp, curtime);
-                }
-            }
-        } else {
-            // X,Y,Z only
-            if (printswitch) {
-                if (hexfloats) {
-                    int i;
-                    printf("%d", station);
-                    for (i=0; i<3; i++)
-                        printf(", 0x%02x%02x%02x%02x",
-                               ((*(int*)&pData[i])>>24) & 0xFF,
-                               ((*(int*)&pData[i])>>16) & 0xFF,
-                               ((*(int*)&pData[i])>> 8) & 0xFF,
-                               ((*(int*)&pData[i])>> 0) & 0xFF);
-                    printf(", %d, %f\n", timestamp, curtime);
-                } else {
-                    printf("%d, %.4f, %.4f, %.4f, %d, %f\n", station,
-                           pData[0], pData[1], pData[2], timestamp, curtime);
-                }
-            }
-        }
+        if (rec.fields & POLHEMUS_DATA_TIMESTAMP)
+            printf(", %u", rec.timestamp);
 
-        // skip cr/lf
-        if (pol->fields & POLHEMUS_DATA_CRLF)
-            p.c += 2;
+        printf(", %f\n", curtime);
 
         if (printswitch)
             continue;
+
+        int station = rec.station;
 
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
