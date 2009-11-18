@@ -78,10 +78,7 @@ int device_found = 0;
 int device_open = 0;
 int data_good = 0;
 
-int numChannels;
 int printswitch = 0;
-int whichdata = 0;
-int hexfloats=1;
 struct timeval prev;
 
 void liblo_error(int num, const char *msg, const char *path);
@@ -202,9 +199,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    whichdata = euler_flag;
-    hexfloats = hex_flag;
-
     port = 0;
     host[0] = 0;
 
@@ -301,18 +295,11 @@ int main(int argc, char *argv[])
 
         CHECKBRK("set_rate",plhm_set_rate(&pol, POLHEMUS_RATE_240));
 
-        if (whichdata) {
-            CHECKBRK("set_data_fields",
-                     plhm_set_data_fields(&pol,
-                                          POLHEMUS_DATA_POSITION
-                                          | POLHEMUS_DATA_EULER
-                                          | POLHEMUS_DATA_TIMESTAMP));
-        } else {
-            CHECKBRK("set_data_fields",
-                     plhm_set_data_fields(&pol,
-                                          POLHEMUS_DATA_POSITION
-                                          | POLHEMUS_DATA_TIMESTAMP));
-        }
+        CHECKBRK("set_data_fields",
+                 plhm_set_data_fields(&pol,
+                                      position_flag ? POLHEMUS_DATA_POSITION : 0
+                                      | euler_flag ? POLHEMUS_DATA_EULER : 0
+                                      | POLHEMUS_DATA_TIMESTAMP));
 
         gettimeofday(&temp, NULL);
         starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
@@ -445,7 +432,7 @@ int GetBinPno(polhemus_t *pol)
 
         if (rec.fields & POLHEMUS_DATA_POSITION)
         {
-            if (hexfloats)
+            if (hex_flag)
                 for (i=0; i<3; i++) {
                     p.f = &rec.position[i];
                     printf(", 0x%02x%02x%02x%02x",
@@ -463,7 +450,7 @@ int GetBinPno(polhemus_t *pol)
 
         if (rec.fields & POLHEMUS_DATA_EULER)
         {
-            if (hexfloats)
+            if (hex_flag)
                 for (i=0; i<3; i++) {
                     p.f = &rec.euler[i];
                     printf(", 0x%02x%02x%02x%02x",
@@ -490,9 +477,10 @@ int GetBinPno(polhemus_t *pol)
         int station = rec.station;
         pData = &rec.position[0];
 
+        char addr[30];
+        if (rec.fields & POLHEMUS_DATA_POSITION) {
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
-        char addr[30];
         sprintf(addr, "/liberty/marker/%d/x", station);
         
         if (OSC_writeAddressAndTypes(b, addr, ",f")) {
@@ -553,8 +541,9 @@ int GetBinPno(polhemus_t *pol)
             exit(1);
         }
         OSC_resetBuffer(b);
+        }
         
-	if(whichdata){
+	if(rec.fields & POLHEMUS_DATA_EULER){
 	  //Azimuth message
 	  sprintf(addr, "/liberty/marker/%d/azimuth", station);
 	  
