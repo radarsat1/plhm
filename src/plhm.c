@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
 "  -E --euler            request euler angle data\n"
 "  -o --output=[path]    write data to stdout, or to a file\n"
 "                        if path is specified\n"
-"  -H --hex              write hex values as hexidecimal\n"
+"  -H --hex              write float values as hexidecimal\n"
 "  -u --oscurl=<url>     provide a URL for OSC destination\n"
 "                        this URL must be liblo-compatible,\n"
 "                        e.g., osc.udp://localhost:9999\n"
