@@ -29,8 +29,6 @@
 #include <stdlib.h>
 #include <getopt.h>
 
-#include "OSC-client.h"
-
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
@@ -44,7 +42,6 @@
 
 #include "plhm.h"
 
-#define SIZE 10000
 #define DEVICENAME "/dev/ttyUSB0"
 
 double starttime;
@@ -63,10 +60,6 @@ const char *version = "1.1.0";
 const char *hdr =
     "\nLinuxTerm Application version %s\nCopyright © 2004 by Polhemus\nAll Rights Reserved.\n\n";
 
-OSCbuf myBuf;
-OSCbuf *b = &myBuf;
-char bytes[SIZE];
-
 int sockfd;
 struct sockaddr_in their_addr;	// connector's address information
 struct hostent *he;
@@ -77,6 +70,8 @@ int started = 0;
 int device_found = 0;
 int device_open = 0;
 int data_good = 0;
+
+lo_address addr = 0;
 
 int printswitch = 0;
 struct timeval prev;
@@ -228,6 +223,14 @@ int main(int argc, char *argv[])
     lo_server_thread_add_method(st, "/liberty/status", "i", status_handler, NULL);
     lo_server_thread_start(st);
 
+    if (osc_url != 0) {
+        addr = lo_address_new_from_url(osc_url);
+        if (!addr) {
+            printf("[plhm] Couldn't open OSC address %s\n", osc_url);
+            exit(1);
+        }
+    }
+
     started = 1;
     port = 9999;
     strcpy(host, "localhost");
@@ -258,26 +261,6 @@ int main(int argc, char *argv[])
                 printf("[plhm] Could not open device %s\n", device_name);
                 break;
             }
-        }
-
-        // init sock & OSC stuff
-        {
-            OSC_initBuffer(b, SIZE, bytes);
-
-            if ((he = gethostbyname(host)) == NULL) {	// get the host info
-                perror("[plhm] gethostbyname");
-                exit(1);
-            }
-
-            if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-                perror("[plhm] socket");
-                exit(1);
-            }
-            
-            their_addr.sin_family = AF_INET;	// host byte order
-            their_addr.sin_port = htons(port);	// short, network byte order
-            their_addr.sin_addr = *((struct in_addr *) he->h_addr);
-            memset(&(their_addr.sin_zero), '\0', 8);	// zero the rest of the struct
         }
 
         // stop any incoming continuous data just in case
@@ -479,161 +462,45 @@ int GetBinPno(polhemus_t *pol)
 
         printf(", %f\n", curtime);
 
-        if (printswitch)
+        if (!addr)
             continue;
 
         int station = rec.station;
         pData = &rec.position[0];
 
-        char addr[30];
-        if (rec.fields & POLHEMUS_DATA_POSITION) {
-        //x message
-        //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
-        sprintf(addr, "/liberty/marker/%d/x", station);
-        
-        if (OSC_writeAddressAndTypes(b, addr, ",f")) {
-            printf("** ERROR 1: %s\n", OSC_errorMessage);
-        }
-        
-        
-        if (OSC_writeFloatArg(b, pData[0])) {
-            printf("** ERROR 2: %s\n", OSC_errorMessage);
+        char path[30];
+        if (rec.fields & POLHEMUS_DATA_POSITION)
+        {
+            sprintf(path, "/liberty/marker/%d/x", station);
+            lo_send(addr, path, "f", rec.position[0]);
+
+            sprintf(path, "/liberty/marker/%d/y", station);
+            lo_send(addr, path, "f", rec.position[1]);
+
+            sprintf(path, "/liberty/marker/%d/z", station);
+            lo_send(addr, path, "f", rec.position[2]);
         }
 
-        //printf("Sending %d bytes\n", OSC_packetSize(b));
-        if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-                               (struct sockaddr *) &their_addr,
-                               sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
-            exit(1);
-        }
-        OSC_resetBuffer(b);
-        
-        //y message
-        sprintf(addr, "/liberty/marker/%d/y", station);
-        
-        if (OSC_writeAddressAndTypes(b, addr, ",f")) {
-            printf("** ERROR 1: %s\n", OSC_errorMessage);
-        }
-        
-        
-        if (OSC_writeFloatArg(b, pData[1])) {
-            printf("** ERROR 2: %s\n", OSC_errorMessage);
+        if (rec.fields & POLHEMUS_DATA_EULER)
+        {
+            sprintf(path, "/liberty/marker/%d/azimuth", station);
+            lo_send(addr, path, "f", rec.euler[0]);
+
+            sprintf(path, "/liberty/marker/%d/elevation", station);
+            lo_send(addr, path, "f", rec.euler[1]);
+
+            sprintf(path, "/liberty/marker/%d/roll", station);
+            lo_send(addr, path, "f", rec.euler[2]);
         }
 
-        //printf("Sending %d bytes\n", OSC_packetSize(b));
-        if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-                               (struct sockaddr *) &their_addr,
-                               sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
-            exit(1);
+        if (rec.fields & POLHEMUS_DATA_TIMESTAMP)
+        {
+            sprintf(path, "/liberty/marker/%d/timestamp", station);
+            lo_send(addr, path, "i", rec.timestamp);
         }
-        OSC_resetBuffer(b);
-        
-        //z message
-        sprintf(addr, "/liberty/marker/%d/z", station);
-        
-        if (OSC_writeAddressAndTypes(b, addr, ",f")) {
-            printf("** ERROR 1: %s\n", OSC_errorMessage);
-        }
-        
-        
-        if (OSC_writeFloatArg(b, pData[2])) {
-            printf("** ERROR 2: %s\n", OSC_errorMessage);
-        }
-        //printf("Sending %d bytes\n", OSC_packetSize(b));
-        if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-                               (struct sockaddr *) &their_addr,
-                               sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
-            exit(1);
-        }
-        OSC_resetBuffer(b);
-        }
-        
-	if(rec.fields & POLHEMUS_DATA_EULER){
-	  //Azimuth message
-	  sprintf(addr, "/liberty/marker/%d/azimuth", station);
-	  
-	  if (OSC_writeAddressAndTypes(b, addr, ",f")) {
-            printf("** ERROR 1: %s\n", OSC_errorMessage);
-	  }
-	  
-	  
-	  if (OSC_writeFloatArg(b, pData[3])) {
-            printf("** ERROR 2: %s\n", OSC_errorMessage);
-	  }
-	  //printf("Sending %d bytes\n", OSC_packetSize(b));
-	  if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-				 (struct sockaddr *) &their_addr,
-				 sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
-            exit(1);
-	  }
-	  OSC_resetBuffer(b);
-	  
-	  
-	  //Elevation message
-	  sprintf(addr, "/liberty/marker/%d/elevation", station);
-	  
-	  if (OSC_writeAddressAndTypes(b, addr, ",f")) {
-            printf("** ERROR 1: %s\n", OSC_errorMessage);
-	  }
-	  
-	  
-	  if (OSC_writeFloatArg(b, pData[4])) {
-            printf("** ERROR 2: %s\n", OSC_errorMessage);
-	  }
-	  //printf("Sending %d bytes\n", OSC_packetSize(b));
-	  if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-				 (struct sockaddr *) &their_addr,
-				 sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
-            exit(1);
-	  }
-	  OSC_resetBuffer(b);
-	  
-	  
-	  //Roll message
-	  sprintf(addr, "/liberty/marker/%d/roll", station);
-	  
-	  if (OSC_writeAddressAndTypes(b, addr, ",f")) {
-            printf("** ERROR 1: %s\n", OSC_errorMessage);
-	  }
-	  
-	  
-	  if (OSC_writeFloatArg(b, pData[5])) {
-            printf("** ERROR 2: %s\n", OSC_errorMessage);
-	  }
-	  //printf("Sending %d bytes\n", OSC_packetSize(b));
-	  if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-				 (struct sockaddr *) &their_addr,
-				 sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
-            exit(1);
-	  }
-	  OSC_resetBuffer(b);
-        }
-        
-        //Timestamp message
-        sprintf(addr, "/liberty/marker/%d/timestamp", station);
-        
-        if (OSC_writeAddressAndTypes(b, addr, ",f")) {
-            printf("** ERROR 1: %s\n", OSC_errorMessage);
-        }
-        
-        
-        if (OSC_writeFloatArg(b, curtime)) {
-            printf("** ERROR 2: %s\n", OSC_errorMessage);
-        }
-        //printf("Sending %d bytes\n", OSC_packetSize(b));
-        if ((numbytes = sendto(sockfd, b->buffer, OSC_packetSize(b), 0,
-                               (struct sockaddr *) &their_addr,
-                               sizeof(struct sockaddr))) == -1) {
-            perror("sendto");
-            exit(1);
-        }
-        OSC_resetBuffer(b);
+
+        sprintf(path, "/liberty/marker/%d/readtime", station);
+        lo_send(addr, path, "f", curtime);
     }
 
     return 0;
