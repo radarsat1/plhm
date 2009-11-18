@@ -1,4 +1,4 @@
 
-libplhmdir = $(includedir)/plhm-1.0
+libplhmdir = $(includedir)/plhm-@MAJOR_VERSION@
 
 libplhm_HEADERS = plhm.h

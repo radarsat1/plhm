@@ -26,6 +26,9 @@ AC_ENABLE_STATIC(no)
 AC_ENABLE_SHARED(yes)
 AC_SUBST(SO_VERSION)
 
+MAJOR_VERSION=$(echo $PACKAGE_VERSION | cut -d. -f1)
+AC_SUBST(MAJOR_VERSION)
+
 AM_SANITY_CHECK
 
 # Checks for programs.
@@ -60,6 +63,6 @@ AC_CONFIG_FILES([
     Makefile
     src/Makefile
     include/Makefile
-    plhm-1.0.pc
+    plhm-$MAJOR_VERSION.pc
 ])
 AC_OUTPUT()
