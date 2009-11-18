@@ -57,8 +57,9 @@ AC_DEFINE_UNQUOTED(LO_BIGENDIAN, "$LO_BIGENDIAN", [If machine is bigendian])
 AC_SUBST(LO_BIGENDIAN)
 
 AC_CONFIG_FILES([
-	Makefile
-	src/Makefile
+    Makefile
+    src/Makefile
+    include/Makefile
     plhm-1.0.pc
 ])
 AC_OUTPUT()

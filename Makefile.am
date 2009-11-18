@@ -1,4 +1,4 @@
-SUBDIRS = src # @DOXYGEN@
+SUBDIRS = src include # @DOXYGEN@
 
 EXTRA_DIST = libtool ltmain.sh autogen.sh
 
