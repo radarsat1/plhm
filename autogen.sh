@@ -20,7 +20,7 @@ DIE=0
   DIE=1
 }
 
-(grep "^AM_PROG_LIBTOOL" $srcdir/configure.ac >/dev/null) && {
+(grep -e "^AM_PROG_LIBTOOL" -e "^LT_INIT" $srcdir/configure.ac >/dev/null) && {
   (libtoolize --version) < /dev/null > /dev/null 2>&1 \
 	  && LIBTOOLIZE=libtoolize || {
 	(glibtoolize --version) < /dev/null > /dev/null 2>&1 \
@@ -90,7 +90,7 @@ do
         echo "Running intltoolize..."
 	intltoolize --copy --force --automake
       fi
-      if grep "^AM_PROG_LIBTOOL" configure.ac >/dev/null; then
+      if grep -e "^AM_PROG_LIBTOOL" -e "^LT_INIT" configure.ac >/dev/null; then
 	if test -z "$NO_LIBTOOLIZE" ; then 
 	  echo "Running libtoolize..."
 	  $LIBTOOLIZE --force --copy
@@ -98,7 +98,8 @@ do
       fi
       echo "Running aclocal $aclocalinclude ..."
       aclocal $aclocalinclude
-      if grep "^AM_CONFIG_HEADER" configure.ac >/dev/null; then
+      if grep -e "^AM_CONFIG_HEADER" -e "^AC_CONFIG_HEADERS" configure.ac \
+           >/dev/null; then
 	echo "Running autoheader..."
 	autoheader
       fi

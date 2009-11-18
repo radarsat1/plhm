@@ -1,6 +1,6 @@
-AC_PREREQ(2.57)
+AC_PREREQ(2.63)
 
-AC_INIT([libplhm], [1.0], [sinclair@music.mcgill.ca])
+AC_INIT([libplhm],[1.0],[sinclair@music.mcgill.ca])
 
 # libtool version: current:revision:age
 #
@@ -18,7 +18,7 @@ AC_INIT([libplhm], [1.0], [sinclair@music.mcgill.ca])
 SO_VERSION=1:0:0
 
 AC_CONFIG_SRCDIR([src/plhm.c])
-AM_CONFIG_HEADER([src/config.h])
+AC_CONFIG_HEADERS([src/config.h])
 
 AM_INIT_AUTOMAKE
 
@@ -33,7 +33,7 @@ AM_SANITY_CHECK
 
 # Checks for programs.
 AC_PROG_CC
-AM_PROG_LIBTOOL
+LT_INIT
 AM_PROG_CC_C_O
 AC_CHECK_PROG([DOXYGEN], [doxygen], [doc], [])
 AC_SUBST(DOXYGEN)
@@ -65,4 +65,4 @@ AC_CONFIG_FILES([
     include/Makefile
     plhm-$MAJOR_VERSION.pc
 ])
-AC_OUTPUT()
+AC_OUTPUT
