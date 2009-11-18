@@ -1,3 +1,15 @@
+/* 
+ * "plhm" and "libplhm" are copyright 2009, Stephen Sinclair and
+ * authors listed in file AUTHORS.
+ *
+ * written at:
+ *   Input Devices and Music Interaction Laboratory
+ *   McGill University, Montreal, Canada
+ *
+ * This code is licensed under the GNU General Public License v2.1 or
+ * later.  See COPYING for more information.
+ */
+
 #ifndef _PLHM_H_
 #define _PLHM_H_
 

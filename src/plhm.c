@@ -1,22 +1,14 @@
-/************************************************************************
-
-		POLHEMUS PROPRIETARY
-
-		Polhemus Inc.
-		P.O. Box 560
-		Colchester, Vermont 05446
-		(802) 655-3159
-
-
-
-        		
-	    Copyright © 2004 by Polhemus
-		All Rights Reserved.
-
-
-*************************************************************************/
-
-// LinuxTerm.c          Sample code to illustrate how to interface to a Liberty/Patriot over Linux via USB
+/* 
+ * "plhm" and "libplhm" are copyright 2009, Stephen Sinclair and
+ * authors listed in file AUTHORS.
+ *
+ * written at:
+ *   Input Devices and Music Interaction Laboratory
+ *   McGill University, Montreal, Canada
+ *
+ * This code is licensed under the GNU General Public License v2.1 or
+ * later.  See COPYING for more information.
+ */
 
 
 #include <stdio.h>
