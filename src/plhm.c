@@ -103,7 +103,7 @@ typedef union {
 static int daemon_flag = 0;
 static int hex_flag = 0;
 static int euler_flag = 0;
-static int position_flag = 1;
+static int position_flag = 0;
 
 const char *device_name = "/dev/ttyUSB0";
 const char *osc_url = 0;
