@@ -474,7 +474,7 @@ static int read_data_record(polhemus_t *p, polhemus_record_t *r)
 
         r->error = *data.c;
         if (r->error != ' ')
-            printf("error %d ('%c') detected for station.\n",
+            printf("error %d ('%c') detected for station %d.\n",
                    r->error, r->error, r->station);
         data.c += 1;
 
@@ -483,6 +483,9 @@ static int read_data_record(polhemus_t *p, polhemus_record_t *r)
 
         int size = *data.s;
         trace("size: %d\n", size);
+        if (size != (bytes - 8))
+            printf("error: size of record is %d, expected %d.\n",
+                   size, bytes - 8);
         data.s += 1;
 
         if (p->fields & POLHEMUS_DATA_POSITION) {
@@ -506,6 +509,7 @@ static int read_data_record(polhemus_t *p, polhemus_record_t *r)
             data.c += 2;
     } else
         return read_until_timeout(p, 100);
+    return 0;
 }
 
 static int cmd_data_request(polhemus_t *p)
@@ -890,6 +894,7 @@ int GetBinPno(polhemus_t *pol)
 
     const float *pData;
     polhemus_record_t rec;
+    multiptr p;
 
     for (int s = 0; s < pol->stations; s++)
     {
@@ -904,12 +909,14 @@ int GetBinPno(polhemus_t *pol)
         if (rec.fields & POLHEMUS_DATA_POSITION)
         {
             if (hexfloats)
-                for (i=0; i<3; i++)
+                for (i=0; i<3; i++) {
+                    p.f = &rec.position[i];
                     printf(", 0x%02x%02x%02x%02x",
-                           ((*(int*)&rec.position[i])>>24) & 0xFF,
-                           ((*(int*)&rec.position[i])>>16) & 0xFF,
-                           ((*(int*)&rec.position[i])>> 8) & 0xFF,
-                           ((*(int*)&rec.position[i])>> 0) & 0xFF);
+                           p.uc[0] & 0xFF,
+                           p.uc[1] & 0xFF,
+                           p.uc[2] & 0xFF,
+                           p.uc[3] & 0xFF);
+                }
             else
                 printf(", %.4f, %.4f, %.4f",
                        rec.position[0],
@@ -920,12 +927,14 @@ int GetBinPno(polhemus_t *pol)
         if (rec.fields & POLHEMUS_DATA_EULER)
         {
             if (hexfloats)
-                for (i=0; i<3; i++)
+                for (i=0; i<3; i++) {
+                    p.f = &rec.euler[i];
                     printf(", 0x%02x%02x%02x%02x",
-                           ((*(int*)&rec.euler[i])>>24) & 0xFF,
-                           ((*(int*)&rec.euler[i])>>16) & 0xFF,
-                           ((*(int*)&rec.euler[i])>> 8) & 0xFF,
-                           ((*(int*)&rec.euler[i])>> 0) & 0xFF);
+                           p.uc[0] & 0xFF,
+                           p.uc[1] & 0xFF,
+                           p.uc[2] & 0xFF,
+                           p.uc[3] & 0xFF);
+                }
             else
                 printf(", %.4f, %.4f, %.4f",
                        rec.euler[0],
@@ -942,6 +951,7 @@ int GetBinPno(polhemus_t *pol)
             continue;
 
         int station = rec.station;
+        pData = &rec.position[0];
 
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
