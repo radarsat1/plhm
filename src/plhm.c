@@ -104,6 +104,9 @@ typedef union {
     const unsigned char *uc;
 } multiptr;
 
+/* macros */
+#define CHECKBRK(m,x) if (x) { printf("[plhm] error: " m "\n"); break; }
+
 /* option flags */
 static int daemon_flag = 0;
 static int hex_flag = 0;
@@ -236,7 +239,7 @@ int main(int argc, char *argv[])
             if (daemon_flag)
                 continue;
             else {
-                printf("Could not find device at %s\n", device_name);
+                printf("[plhm] Could not find device at %s\n", device_name);
                 break;
             }
         }
@@ -250,7 +253,7 @@ int main(int argc, char *argv[])
             if (daemon_flag)
                 continue;
             else {
-                printf("Could not open device %s\n", device_name);
+                printf("[plhm] Could not open device %s\n", device_name);
                 break;
             }
         }
@@ -260,12 +263,12 @@ int main(int argc, char *argv[])
             OSC_initBuffer(b, SIZE, bytes);
 
             if ((he = gethostbyname(host)) == NULL) {	// get the host info
-                perror("gethostbyname");
+                perror("[plhm] gethostbyname");
                 exit(1);
             }
 
             if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-                perror("socket");
+                perror("[plhm] socket");
                 exit(1);
             }
             
@@ -277,70 +280,58 @@ int main(int argc, char *argv[])
 
         // stop any incoming continuous data just in case
         // ignore the response
-        if (plhm_data_request(&pol))
-            break;
+        CHECKBRK("data_request",plhm_data_request(&pol));
 
         plhm_read_until_timeout(&pol, 500);
 
-        if (plhm_text_mode(&pol))
-            break;
+        CHECKBRK("text_mode",plhm_text_mode(&pol));
 
         // determine tracker type        
-        if (plhm_get_version(&pol))
-            break;
+        CHECKBRK("get_version",plhm_get_version(&pol));
 
         // check for initialization errors
-        if (plhm_read_bits(&pol))
-            break;
+        CHECKBRK("read_bits",plhm_read_bits(&pol));
 
         // check what stations are available
-        if (plhm_get_stations(&pol))
-            break;
+        CHECKBRK("get_stations",plhm_get_stations(&pol));
 
-        if (plhm_set_hemisphere(&pol))
-            break;
+        CHECKBRK("set_hemisphere",plhm_set_hemisphere(&pol));
 
-        if (plhm_set_units(&pol, POLHEMUS_UNITS_METRIC))
-            break;
+        CHECKBRK("set_units",plhm_set_units(&pol, POLHEMUS_UNITS_METRIC));
 
-        if (plhm_set_rate(&pol, POLHEMUS_RATE_240))
-            break;
+        CHECKBRK("set_rate",plhm_set_rate(&pol, POLHEMUS_RATE_240));
 
         if (whichdata) {
-            if (plhm_set_data_fields(&pol,
-                                    POLHEMUS_DATA_POSITION
-                                    | POLHEMUS_DATA_EULER
-                                    | POLHEMUS_DATA_TIMESTAMP))
-                break;
+            CHECKBRK("set_data_fields",
+                     plhm_set_data_fields(&pol,
+                                          POLHEMUS_DATA_POSITION
+                                          | POLHEMUS_DATA_EULER
+                                          | POLHEMUS_DATA_TIMESTAMP));
         } else {
-            if (plhm_set_data_fields(&pol,
-                                    POLHEMUS_DATA_POSITION
-                                    | POLHEMUS_DATA_TIMESTAMP))
-                break;
+            CHECKBRK("set_data_fields",
+                     plhm_set_data_fields(&pol,
+                                          POLHEMUS_DATA_POSITION
+                                          | POLHEMUS_DATA_TIMESTAMP));
         }
 
         gettimeofday(&temp, NULL);
         starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
 
-        if (plhm_binary_mode(&pol))
-            break;
+        CHECKBRK("binary_mode",plhm_binary_mode(&pol));
 
-        if (plhm_data_request_continuous(&pol))
-            break;
+        CHECKBRK("data_request_continuous",plhm_data_request_continuous(&pol));
 
         /* loop getting data until stop is requested or error occurs */
         while (started && !GetBinPno(&pol)) {}
 
         // stop any incoming continuous data
-        if (plhm_data_request(&pol))
-            break;
+        CHECKBRK("data_request",plhm_data_request(&pol));
 
         plhm_read_until_timeout(&pol, 500);
         plhm_read_until_timeout(&pol, 500);
         plhm_read_until_timeout(&pol, 500);
 
-        if (plhm_text_mode(&pol))
-            break;
+        CHECKBRK("text_mode",plhm_text_mode(&pol));
 
         plhm_close_device(&pol);
         close(sockfd);
