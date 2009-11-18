@@ -288,8 +288,8 @@ int main(int argc, char *argv[])
 
         CHECKBRK("set_data_fields",
                  plhm_set_data_fields(&pol,
-                                      position_flag ? POLHEMUS_DATA_POSITION : 0
-                                      | euler_flag ? POLHEMUS_DATA_EULER : 0
+                                      (position_flag ? POLHEMUS_DATA_POSITION : 0)
+                                      | (euler_flag ? POLHEMUS_DATA_EULER : 0)
                                       | POLHEMUS_DATA_TIMESTAMP));
 
         gettimeofday(&temp, NULL);
