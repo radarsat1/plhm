@@ -3,12 +3,13 @@ SOURCES=libertyd.c OSC-client.c OSC-timetag.c
 HEADERS=OSC-client.h OSC-timetag.h
 OBJS=$(SOURCES:%.c=%.o)
 TARGET=libertyd
-LIBS=-llo
+LIBS=$(shell pkg-config --libs liblo)
+CFLAGS=$(shell pkg-config --cflags liblo)
 
 ifdef DEBUG
-CFLAGS=-ggdb -Wall -DDEBUG
+CFLAGS+=-ggdb -Wall -DDEBUG
 else
-CFLAGS=-O3 -Wall
+CFLAGS+=-O3 -Wall
 endif
 
 $(TARGET): $(OBJS)
