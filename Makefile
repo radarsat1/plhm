@@ -1,5 +1,5 @@
 
-SOURCES=libertyd.c OSC-client.c OSC-timetag.c
+SOURCES=libertyd.c OSC-client.c OSC-timetag.c plhm.c
 HEADERS=OSC-client.h OSC-timetag.h
 OBJS=$(SOURCES:%.c=%.o)
 TARGET=libertyd
@@ -21,3 +21,5 @@ $(TARGET): $(OBJS)
 .PHONY: clean
 clean:
 	-rm $(OBJS) $(TARGET) *~
+
+main: main.o
