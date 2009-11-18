@@ -111,6 +111,7 @@ static int euler_flag = 0;
 static int position_flag = 1;
 
 const char *device_name = "/dev/ttyUSB0";
+const char *osc_url = 0;
 
 int main(int argc, char *argv[])
 {
@@ -123,6 +124,7 @@ int main(int argc, char *argv[])
         {"position", no_argument,       &position_flag, 1},
         {"output",   optional_argument, 0,              1},
         {"oscurl",   required_argument, 0,              'u'},
+        {"oscport",  required_argument, 0,              'p'},
         {"help",     no_argument,       0,              0},
         {0, 0, 0, 0}
     };
@@ -130,7 +132,7 @@ int main(int argc, char *argv[])
     while (1)
     {
         int option_index = 0;
-        int c = getopt_long(argc, argv, "Dd:Hepou:h",
+        int c = getopt_long(argc, argv, "Dd:HEPou:p:h",
                             long_options, &option_index);
         if (c==-1)
             break;
@@ -150,11 +152,11 @@ int main(int argc, char *argv[])
             hex_flag = 1;
             break;
 
-        case 'p':
+        case 'P':
             position_flag = 1;
             break;
 
-        case 'e':
+        case 'E':
             euler_flag = 1;
             break;
 
@@ -165,6 +167,11 @@ int main(int argc, char *argv[])
 
         case 'u':
             // handle OSC url (liblo)
+            osc_url = optarg;
+            break;
+
+        case 'p':
+            port = atoi(optarg);
             break;
 
         case 'o':
@@ -182,16 +189,17 @@ int main(int argc, char *argv[])
 "  where options are:\n"
 "  -D --daemon           wait indefinitely for device\n"
 "  -d --device=<device>  specify the serial device to use\n"
-"  -p --position         request position data\n"
-"  -e --euler            request euler angle data\n"
+"  -P --position         request position data\n"
+"  -E --euler            request euler angle data\n"
 "  -o --output=[path]    write data to stdout, or to a file\n"
 "                        if path is specified\n"
 "  -H --hex              write hex values as hexidecimal\n"
-"  -u --sendurl=<url>    provide a URL for OSC destination\n"
+"  -u --oscurl=<url>     provide a URL for OSC destination\n"
 "                        this URL must be liblo-compatible,\n"
-"                        e.g., osc.udp://localhost:9000\n"
+"                        e.g., osc.udp://localhost:9999\n"
 "                        this option is required to enable\n"
 "                        the Open Sound Control interface\n"
+"  -p --oscport=<port>   port on which to listen for OSC messages\n"
 "  -h --help             show this help\n"
                    , argv[0]);
             exit(c!='h');
