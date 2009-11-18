@@ -48,22 +48,6 @@ double starttime;
 double curtime;
 struct timeval temp;
 
-void GetPno();
-
-
-int rdPort, wrPort;
-
-float pos[2] = { 0, 0 };
-float dist = 0.0;
-
-const char *version = "1.1.0";
-const char *hdr =
-    "\nLinuxTerm Application version %s\nCopyright © 2004 by Polhemus\nAll Rights Reserved.\n\n";
-
-int sockfd;
-struct sockaddr_in their_addr;	// connector's address information
-struct hostent *he;
-int numbytes;
 int port=0;
 char host[256];
 int started = 0;
@@ -205,10 +189,6 @@ int main(int argc, char *argv[])
     port = 0;
     host[0] = 0;
 
-    char choice[10];
-    char buf[1000];
-    char trakType[30];
-    int br;
     int slp = 0;
 
     polhemus_t pol;
@@ -312,11 +292,9 @@ int main(int argc, char *argv[])
         CHECKBRK("text_mode",plhm_text_mode(&pol));
 
         plhm_close_device(&pol);
-        close(sockfd);
     }
 
     plhm_close_device(&pol);
-    close(sockfd);
 
     return 0;
 }
@@ -350,34 +328,6 @@ int timeval_subtract (struct timeval *result,
 
     /* Return 1 if result is negative. */
     return x->tv_sec < y->tv_sec;
-}
-
-
-void GetPno()
-{
-    int br, count;
-    char buf[2000];		// may need to be larger if getting a lot of data
-    int start = 0;
-
-    memset(buf, 0, 2000);
-
-    count = 0;
-    write(wrPort, "P", 1);	// request data 
-
-
-    // keep reading till the well has been dry for at least 5 attempts
-    count = 0;
-    do {			
-        br = read(rdPort, buf + start, 2000 - start);
-        if (br > 0)
-            start += br;
-        usleep(1000);
-    } while ((br > 0) || (count++ < 5));
-    
-    buf[start] = '\0';		//terminate
-    printf("\n%d bytes Read\n", start);
-
-    printf(buf);
 }
 
 int GetBinPno(polhemus_t *pol)
