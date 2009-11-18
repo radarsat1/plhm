@@ -110,6 +110,8 @@ static int hex_flag = 0;
 static int euler_flag = 0;
 static int position_flag = 1;
 
+const char *device_name = "/dev/ttyUSB0";
+
 int main(int argc, char *argv[])
 {
     static struct option long_options[] =
@@ -158,6 +160,7 @@ int main(int argc, char *argv[])
 
         case 'd':
             // serial device name
+            device_name = optarg;
             break;
 
         case 'u':
@@ -229,19 +232,28 @@ int main(int argc, char *argv[])
         slp = 1;
         
         // Loop until device is available.
-        if (plhm_find_device(DEVICENAME)) {
+        if (plhm_find_device(device_name)) {
             if (daemon_flag)
                 continue;
-            else
+            else {
+                printf("Could not find device at %s\n", device_name);
                 break;
+            }
         }
 
         // Don't open device if nobody is listening
-        if (!started || port==0)
+        if ((!started || port==0) && daemon_flag)
             continue;
 
-        if (plhm_open_device(&pol, DEVICENAME))
-            continue;
+        if (plhm_open_device(&pol, device_name))
+        {
+            if (daemon_flag)
+                continue;
+            else {
+                printf("Could not open device %s\n", device_name);
+                break;
+            }
+        }
 
         // init sock & OSC stuff
         {
