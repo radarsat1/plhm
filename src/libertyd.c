@@ -48,7 +48,7 @@
 
 double starttime;
 double curtime;
-timeval temp;
+struct timeval temp;
 
 void GetPno();
 
@@ -347,8 +347,9 @@ int GetBinPno(polhemus_t *pol)
     const float *pData;
     polhemus_record_t rec;
     multiptr p;
+    int s;
 
-    for (int s = 0; s < pol->stations; s++)
+    for (s = 0; s < pol->stations; s++)
     {
         if (plhm_read_data_record(pol, &rec))
             return 1;
@@ -407,7 +408,7 @@ int GetBinPno(polhemus_t *pol)
 
         //x message
         //int addrLength = OSC_effectiveStringLength("/liberty/marker/%d/x");           
-        char *addr = new char[30];
+        char addr[30];
         sprintf(addr, "/liberty/marker/%d/x", station);
         
         if (OSC_writeAddressAndTypes(b, addr, ",f")) {
