@@ -20,27 +20,13 @@
 
 
 #include <stdio.h>
-#include <ctype.h>
 #include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/time.h>
-#include <termios.h>
 #include <stdlib.h>
 #include <getopt.h>
 
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-
 #include <lo/lo.h>
 
-#include "plhm.h"
+#include <plhm.h>
 
 #define DEVICENAME "/dev/ttyUSB0"
 
