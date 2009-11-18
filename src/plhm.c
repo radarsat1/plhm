@@ -27,6 +27,7 @@
 #include <sys/time.h>
 #include <termios.h>
 #include <stdlib.h>
+#include <getopt.h>
 
 #include "OSC-client.h"
 
@@ -78,8 +79,8 @@ int device_open = 0;
 int data_good = 0;
 
 int numChannels;
-int printswitch;
-int whichdata;
+int printswitch = 0;
+int whichdata = 0;
 int hexfloats=1;
 struct timeval prev;
 
@@ -103,27 +104,103 @@ typedef union {
     const unsigned char *uc;
 } multiptr;
 
+/* option flags */
+static int daemon_flag = 0;
+static int hex_flag = 0;
+static int euler_flag = 0;
+static int position_flag = 1;
+
 int main(int argc, char *argv[])
 {
-  if (argc < 4 || atoi(argv[1]) <= 0 || atoi(argv[2]) < 0 || atoi(argv[2]) > 1 || atoi(argv[3]) < 0 || atoi(argv[3]) > 1) {
-        printf("Usage: %s <number of channels> <print location> <which data> "
-               "<hexfloat>\n (print location: 0 -> send over OSC "
-               "port 9999, 1-> print to terminal)\n (which data: 0 -> "
-               "X,Y,Z + timestamp only, 1 -> X,Y,Z, & Euler Angles + "
-               "timestamp)\n"
-               " (hexfloat: 0 -> print floats in decimal, 1 -> in hex)\n\n",
-               argv[0]);
-        exit(1);
+    static struct option long_options[] =
+    {
+        {"daemon",   no_argument,       &daemon_flag,   1},
+        {"device",   required_argument, 0,              'd'},
+        {"hex",      no_argument,       &hex_flag,      1},
+        {"euler",    no_argument,       &euler_flag,    1},
+        {"position", no_argument,       &position_flag, 1},
+        {"output",   optional_argument, 0,              1},
+        {"oscurl",   required_argument, 0,              'u'},
+        {"help",     no_argument,       0,              0},
+        {0, 0, 0, 0}
+    };
+
+    while (1)
+    {
+        int option_index = 0;
+        int c = getopt_long(argc, argv, "Dd:Hepou:h",
+                            long_options, &option_index);
+        if (c==-1)
+            break;
+
+        switch (c)
+        {
+        case 0:
+            if (long_options[option_index].flag != 0)
+                break;
+            break;
+
+        case 'D':
+            daemon_flag = 1;
+            break;
+
+        case 'H':
+            hex_flag = 1;
+            break;
+
+        case 'p':
+            position_flag = 1;
+            break;
+
+        case 'e':
+            euler_flag = 1;
+            break;
+
+        case 'd':
+            // serial device name
+            break;
+
+        case 'u':
+            // handle OSC url (liblo)
+            break;
+
+        case 'o':
+            // output file name, if specified
+            // otherwise, stdout
+            printswitch = 1;
+            break;
+
+        case '?':
+            break;
+
+        default:
+        case 'h':
+            printf("Usage: %s [options]\n"
+"  where options are:\n"
+"  -D --daemon           wait indefinitely for device\n"
+"  -d --device=<device>  specify the serial device to use\n"
+"  -p --position         request position data\n"
+"  -e --euler            request euler angle data\n"
+"  -o --output=[path]    write data to stdout, or to a file\n"
+"                        if path is specified\n"
+"  -H --hex              write hex values as hexidecimal\n"
+"  -u --sendurl=<url>    provide a URL for OSC destination\n"
+"                        this URL must be liblo-compatible,\n"
+"                        e.g., osc.udp://localhost:9000\n"
+"                        this option is required to enable\n"
+"                        the Open Sound Control interface\n"
+"  -h --help             show this help\n"
+                   , argv[0]);
+            exit(c!='h');
+            break;
+        }
     }
+
+    whichdata = euler_flag;
+    hexfloats = hex_flag;
 
     port = 0;
     host[0] = 0;
-    numChannels = atoi(argv[1]);
-    printswitch = atoi(argv[2]); //routes data to the terminal or over OSC
-    whichdata = atoi(argv[3]);   //for outputting either 3DoF or 6DoF per marker + timestamp
-
-    if (argc > 4)
-        hexfloats = atoi(argv[4]);
 
     char choice[10];
     char buf[1000];
@@ -152,8 +229,12 @@ int main(int argc, char *argv[])
         slp = 1;
         
         // Loop until device is available.
-        if (plhm_find_device(DEVICENAME))
-            continue;
+        if (plhm_find_device(DEVICENAME)) {
+            if (daemon_flag)
+                continue;
+            else
+                break;
+        }
 
         // Don't open device if nobody is listening
         if (!started || port==0)
