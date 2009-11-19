@@ -58,6 +58,7 @@ typedef union {
 
 /* macros */
 #define CHECKBRK(m,x) if (x) { printf("[plhm] error: " m "\n"); break; }
+#define LOG(...) if (outfile) { fprintf(outfile, __VA_ARGS__); }
 
 /* option flags */
 static int daemon_flag = 0;
@@ -68,7 +69,7 @@ static int position_flag = 0;
 const char *device_name = "/dev/ttyUSB0";
 const char *osc_url = 0;
 
-FILE *outfile = 1; // temporary
+FILE *outfile = 0;
 
 int main(int argc, char *argv[])
 {
@@ -79,7 +80,7 @@ int main(int argc, char *argv[])
         {"hex",      no_argument,       &hex_flag,      1},
         {"euler",    no_argument,       &euler_flag,    1},
         {"position", no_argument,       &position_flag, 1},
-        {"output",   optional_argument, 0,              1},
+        {"output",   optional_argument, 0,              'o'},
         {"oscurl",   required_argument, 0,              'u'},
         {"oscport",  required_argument, 0,              'p'},
         {"help",     no_argument,       0,              0},
@@ -89,7 +90,7 @@ int main(int argc, char *argv[])
     while (1)
     {
         int option_index = 0;
-        int c = getopt_long(argc, argv, "Dd:HEPou:p:h",
+        int c = getopt_long(argc, argv, "Dd:HEPo::u:p:h",
                             long_options, &option_index);
         if (c==-1)
             break;
@@ -134,7 +135,11 @@ int main(int argc, char *argv[])
         case 'o':
             // output file name, if specified
             // otherwise, stdout
-            printswitch = 1;
+            if (optarg) {
+                outfile = fopen(optarg, "w");
+            }
+            else
+                outfile = stdout;
             break;
 
         case '?':
@@ -284,6 +289,8 @@ int main(int argc, char *argv[])
         lo_server_thread_free(st);
     if (addr)
         lo_address_free(addr);
+    if (outfile && (outfile != stdout))
+        fclose(outfile);
 
     return 0;
 }
@@ -326,9 +333,6 @@ int read_stations_and_send(plhm_t *pol)
 
 /*     plhm_data_request(pol); */
     
-    //system("clear");
-    //printf("Time: %ld \n", curtime);
-
     const float *pData;
     plhm_record_t rec;
     multiptr p;
@@ -342,24 +346,24 @@ int read_stations_and_send(plhm_t *pol)
         curtime = ((rec.readtime.tv_sec * 1000.0)
                    + (rec.readtime.tv_usec / 1000.0));
 
-        printf("%d", rec.station);
+        LOG("%d", rec.station);
 
         if (rec.fields & PLHM_DATA_POSITION)
         {
             if (hex_flag)
                 for (i=0; i<3; i++) {
                     p.f = &rec.position[i];
-                    printf(", 0x%02x%02x%02x%02x",
-                           p.uc[0] & 0xFF,
-                           p.uc[1] & 0xFF,
-                           p.uc[2] & 0xFF,
-                           p.uc[3] & 0xFF);
+                    LOG(", 0x%02x%02x%02x%02x",
+                        p.uc[0] & 0xFF,
+                        p.uc[1] & 0xFF,
+                        p.uc[2] & 0xFF,
+                        p.uc[3] & 0xFF);
                 }
             else
-                printf(", %.4f, %.4f, %.4f",
-                       rec.position[0],
-                       rec.position[1],
-                       rec.position[2]);
+                LOG(", %.4f, %.4f, %.4f",
+                    rec.position[0],
+                    rec.position[1],
+                    rec.position[2]);
         }
 
         if (rec.fields & PLHM_DATA_EULER)
@@ -367,23 +371,23 @@ int read_stations_and_send(plhm_t *pol)
             if (hex_flag)
                 for (i=0; i<3; i++) {
                     p.f = &rec.euler[i];
-                    printf(", 0x%02x%02x%02x%02x",
-                           p.uc[0] & 0xFF,
-                           p.uc[1] & 0xFF,
-                           p.uc[2] & 0xFF,
-                           p.uc[3] & 0xFF);
+                    LOG(", 0x%02x%02x%02x%02x",
+                        p.uc[0] & 0xFF,
+                        p.uc[1] & 0xFF,
+                        p.uc[2] & 0xFF,
+                        p.uc[3] & 0xFF);
                 }
             else
-                printf(", %.4f, %.4f, %.4f",
-                       rec.euler[0],
-                       rec.euler[1],
-                       rec.euler[2]);
+                LOG(", %.4f, %.4f, %.4f",
+                    rec.euler[0],
+                    rec.euler[1],
+                    rec.euler[2]);
         }
 
         if (rec.fields & PLHM_DATA_TIMESTAMP)
-            printf(", %u", rec.timestamp);
+            LOG(", %u", rec.timestamp);
 
-        printf(", %f\n", curtime);
+        LOG(", %f\n", curtime);
 
         if (!addr)
             continue;
