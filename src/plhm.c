@@ -64,6 +64,7 @@ static int daemon_flag = 0;
 static int hex_flag = 0;
 static int euler_flag = 0;
 static int position_flag = 0;
+static int timestamp_flag = 0;
 
 const char *device_name = "/dev/ttyUSB0";
 const char *osc_url = 0;
@@ -79,6 +80,7 @@ int main(int argc, char *argv[])
         {"hex",      no_argument,       &hex_flag,      1},
         {"euler",    no_argument,       &euler_flag,    1},
         {"position", no_argument,       &position_flag, 1},
+        {"timestamp",no_argument,       &timestamp_flag,1},
         {"output",   optional_argument, 0,              'o'},
         {"send",     required_argument, 0,              's'},
         {"listen",   required_argument, 0,              'l'},
@@ -91,7 +93,7 @@ int main(int argc, char *argv[])
     while (1)
     {
         int option_index = 0;
-        int c = getopt_long(argc, argv, "Dd:HEPo::s:l:hVp::",
+        int c = getopt_long(argc, argv, "Dd:HEPTo::s:l:hVp::",
                             long_options, &option_index);
         if (c==-1)
             break;
@@ -117,6 +119,10 @@ int main(int argc, char *argv[])
 
         case 'E':
             euler_flag = 1;
+            break;
+
+        case 'T':
+            timestamp_flag = 1;
             break;
 
         case 'd':
@@ -281,7 +287,7 @@ int main(int argc, char *argv[])
                  plhm_set_data_fields(&pol,
                                       (position_flag ? PLHM_DATA_POSITION : 0)
                                       | (euler_flag ? PLHM_DATA_EULER : 0)
-                                      | PLHM_DATA_TIMESTAMP));
+                                      | (timestamp_flag ? PLHM_DATA_TIMESTAMP : 0)));
 
         gettimeofday(&temp, NULL);
         starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
