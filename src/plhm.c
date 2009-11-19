@@ -21,8 +21,6 @@
 
 #include <plhm.h>
 
-#define DEVICENAME "/dev/ttyUSB0"
-
 double starttime;
 double curtime;
 struct timeval temp;
