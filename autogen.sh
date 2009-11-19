@@ -41,6 +41,10 @@ DIE=0
   NO_AUTOMAKE=yes
 }
 
+(git --version) < /dev/null > /dev/null 2>&1 || {
+  NO_GIT=yes
+}
+
 
 # if no automake, don't bother testing for aclocal
 test -n "$NO_AUTOMAKE" || (aclocal --version) < /dev/null > /dev/null 2>&1 || {
@@ -102,6 +106,13 @@ do
            >/dev/null; then
 	echo "Running autoheader..."
 	autoheader
+      fi
+      if test -z "$NO_GIT" && test -d .git; then
+          echo "Generating ChangeLog using git ..."
+          git log >ChangeLog
+      else
+          echo "No git, generating stub ChangeLog ..."
+          touch ChangeLog
       fi
       echo "Running automake --gnu $am_opt ..."
       automake --add-missing --gnu $am_opt
