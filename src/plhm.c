@@ -19,6 +19,7 @@
 
 #include <lo/lo.h>
 
+#include "config.h"
 #include <plhm.h>
 
 double starttime;
@@ -84,13 +85,14 @@ int main(int argc, char *argv[])
         {"oscurl",   required_argument, 0,              'u'},
         {"oscport",  required_argument, 0,              'p'},
         {"help",     no_argument,       0,              0},
+        {"version",  no_argument,       0,              'V'},
         {0, 0, 0, 0}
     };
 
     while (1)
     {
         int option_index = 0;
-        int c = getopt_long(argc, argv, "Dd:HEPo::u:p:h",
+        int c = getopt_long(argc, argv, "Dd:HEPo::u:p:hV",
                             long_options, &option_index);
         if (c==-1)
             break;
@@ -142,6 +144,11 @@ int main(int argc, char *argv[])
                 outfile = stdout;
             break;
 
+        case 'V':
+            printf(PACKAGE_STRING "  (" __DATE__ ")");
+            exit(0);
+            break;
+
         case '?':
             break;
 
@@ -162,6 +169,7 @@ int main(int argc, char *argv[])
 "                        this option is required to enable\n"
 "                        the Open Sound Control interface\n"
 "  -p --oscport=<port>   port on which to listen for OSC messages\n"
+"  -V --version          print the version string and exit\n"
 "  -h --help             show this help\n"
                    , argv[0]);
             exit(c!='h');
