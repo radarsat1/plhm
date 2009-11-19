@@ -47,7 +47,7 @@ int stop_handler(const char *path, const char *types, lo_arg **argv, int argc,
 int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
                    void *data, void *user_data);
 
-int GetBinPno(polhemus_t *pol);
+int GetBinPno(plhm_t *pol);
 
 typedef union {
     const int *i;
@@ -170,8 +170,8 @@ int main(int argc, char *argv[])
 
     int slp = 0;
 
-    polhemus_t pol;
-    memset((void*)&pol, 0, sizeof(polhemus_t));
+    plhm_t pol;
+    memset((void*)&pol, 0, sizeof(plhm_t));
 
     // setup OSC server
     lo_server_thread st = lo_server_thread_new("5000", liblo_error);
@@ -241,15 +241,15 @@ int main(int argc, char *argv[])
 
         CHECKBRK("set_hemisphere",plhm_set_hemisphere(&pol));
 
-        CHECKBRK("set_units",plhm_set_units(&pol, POLHEMUS_UNITS_METRIC));
+        CHECKBRK("set_units",plhm_set_units(&pol, PLHM_UNITS_METRIC));
 
-        CHECKBRK("set_rate",plhm_set_rate(&pol, POLHEMUS_RATE_240));
+        CHECKBRK("set_rate",plhm_set_rate(&pol, PLHM_RATE_240));
 
         CHECKBRK("set_data_fields",
                  plhm_set_data_fields(&pol,
-                                      (position_flag ? POLHEMUS_DATA_POSITION : 0)
-                                      | (euler_flag ? POLHEMUS_DATA_EULER : 0)
-                                      | POLHEMUS_DATA_TIMESTAMP));
+                                      (position_flag ? PLHM_DATA_POSITION : 0)
+                                      | (euler_flag ? PLHM_DATA_EULER : 0)
+                                      | PLHM_DATA_TIMESTAMP));
 
         gettimeofday(&temp, NULL);
         starttime = (temp.tv_sec * 1000.0) + (temp.tv_usec / 1000.0);
@@ -297,7 +297,7 @@ int timeval_subtract (struct timeval *result,
     return x->tv_sec < y->tv_sec;
 }
 
-int GetBinPno(polhemus_t *pol)
+int GetBinPno(plhm_t *pol)
 {
     int i = 0;
     struct timeval now, diff;
@@ -320,7 +320,7 @@ int GetBinPno(polhemus_t *pol)
     //printf("Time: %ld \n", curtime);
 
     const float *pData;
-    polhemus_record_t rec;
+    plhm_record_t rec;
     multiptr p;
     int s;
 
@@ -334,7 +334,7 @@ int GetBinPno(polhemus_t *pol)
 
         printf("%d", rec.station);
 
-        if (rec.fields & POLHEMUS_DATA_POSITION)
+        if (rec.fields & PLHM_DATA_POSITION)
         {
             if (hex_flag)
                 for (i=0; i<3; i++) {
@@ -352,7 +352,7 @@ int GetBinPno(polhemus_t *pol)
                        rec.position[2]);
         }
 
-        if (rec.fields & POLHEMUS_DATA_EULER)
+        if (rec.fields & PLHM_DATA_EULER)
         {
             if (hex_flag)
                 for (i=0; i<3; i++) {
@@ -370,7 +370,7 @@ int GetBinPno(polhemus_t *pol)
                        rec.euler[2]);
         }
 
-        if (rec.fields & POLHEMUS_DATA_TIMESTAMP)
+        if (rec.fields & PLHM_DATA_TIMESTAMP)
             printf(", %u", rec.timestamp);
 
         printf(", %f\n", curtime);
@@ -382,7 +382,7 @@ int GetBinPno(polhemus_t *pol)
         pData = &rec.position[0];
 
         char path[30];
-        if (rec.fields & POLHEMUS_DATA_POSITION)
+        if (rec.fields & PLHM_DATA_POSITION)
         {
             sprintf(path, "/liberty/marker/%d/x", station);
             lo_send(addr, path, "f", rec.position[0]);
@@ -394,7 +394,7 @@ int GetBinPno(polhemus_t *pol)
             lo_send(addr, path, "f", rec.position[2]);
         }
 
-        if (rec.fields & POLHEMUS_DATA_EULER)
+        if (rec.fields & PLHM_DATA_EULER)
         {
             sprintf(path, "/liberty/marker/%d/azimuth", station);
             lo_send(addr, path, "f", rec.euler[0]);
@@ -406,7 +406,7 @@ int GetBinPno(polhemus_t *pol)
             lo_send(addr, path, "f", rec.euler[2]);
         }
 
-        if (rec.fields & POLHEMUS_DATA_TIMESTAMP)
+        if (rec.fields & PLHM_DATA_TIMESTAMP)
         {
             sprintf(path, "/liberty/marker/%d/timestamp", station);
             lo_send(addr, path, "i", rec.timestamp);

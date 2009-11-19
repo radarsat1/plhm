@@ -64,7 +64,7 @@ static void tracersp(const char* rsp)
 #define trace(...)
 #endif
 
-static int read_oneline(polhemus_t *p)
+static int read_oneline(plhm_t *p)
 {
     int rc;
     int count=0;
@@ -109,7 +109,7 @@ static int read_oneline(polhemus_t *p)
     return 1;
 }
 
-int plhm_read_until_timeout(polhemus_t *p, int ms)
+int plhm_read_until_timeout(plhm_t *p, int ms)
 {
     // TODO: check if anything is in p->buffer
 
@@ -143,7 +143,7 @@ int plhm_read_until_timeout(polhemus_t *p, int ms)
     return 1;
 }
 
-static int read_bytes(polhemus_t *p, int bytes)
+static int read_bytes(plhm_t *p, int bytes)
 {
     int rc;
     int count=0;
@@ -190,7 +190,7 @@ static int read_bytes(polhemus_t *p, int bytes)
     return 1;
 }
 
-int plhm_open_device(polhemus_t *p, const char *device)
+int plhm_open_device(plhm_t *p, const char *device)
 {
     struct termios newAtt;
     p->device_open = 0;
@@ -231,7 +231,7 @@ int plhm_open_device(polhemus_t *p, const char *device)
     return 0;
 }
 
-int plhm_close_device(polhemus_t *p)
+int plhm_close_device(plhm_t *p)
 {
     if (!p->device_open)
         return 0;
@@ -246,7 +246,7 @@ int plhm_close_device(polhemus_t *p)
     return 0;
 }
 
-int plhm_is_initialized(polhemus_t *p)
+int plhm_is_initialized(plhm_t *p)
 {
     return p->device_open;
 }
@@ -260,19 +260,19 @@ int plhm_find_device(const char *device)
     return 0;
 }
 
-void command(polhemus_t *p, const char *cmd)
+void command(plhm_t *p, const char *cmd)
 {
     tracecmd(cmd);
     write(p->wr, cmd, strlen(cmd));
 }
 
-int plhm_read_bits(polhemus_t *p)
+int plhm_read_bits(plhm_t *p)
 {
     command(p, "\x14\r");
     return plhm_read_until_timeout(p, 100);
 }
 
-int plhm_get_station_info(polhemus_t *p, int station)
+int plhm_get_station_info(plhm_t *p, int station)
 {
     char cmd[50];
     sprintf(cmd, "\x16%d\r", station+1);
@@ -294,20 +294,20 @@ typedef union {
     const unsigned char *uc;
 } multiptr;
 
-int plhm_read_data_record(polhemus_t *p, polhemus_record_t *r)
+int plhm_read_data_record(plhm_t *p, plhm_record_t *r)
 {
     int rc, bytes;
     multiptr data;
 
     if (p->binary) {
         bytes = 0;
-        if (p->fields & POLHEMUS_DATA_POSITION)
+        if (p->fields & PLHM_DATA_POSITION)
             bytes += 20;
-        if (p->fields & POLHEMUS_DATA_EULER)
+        if (p->fields & PLHM_DATA_EULER)
             bytes += 12;
-        if (p->fields & POLHEMUS_DATA_TIMESTAMP)
+        if (p->fields & PLHM_DATA_TIMESTAMP)
             bytes += 4;
-        if (p->fields & POLHEMUS_DATA_CRLF)
+        if (p->fields & PLHM_DATA_CRLF)
             bytes += 2;
 
         rc = read_bytes(p, bytes);
@@ -355,44 +355,44 @@ int plhm_read_data_record(polhemus_t *p, polhemus_record_t *r)
                    size, bytes - 8);
         data.s += 1;
 
-        if (p->fields & POLHEMUS_DATA_POSITION) {
+        if (p->fields & PLHM_DATA_POSITION) {
             r->position[0] = *data.f++;
             r->position[1] = *data.f++;
             r->position[2] = *data.f++;
         }
 
-        if (p->fields & POLHEMUS_DATA_EULER) {
+        if (p->fields & PLHM_DATA_EULER) {
             r->euler[0] = *data.f++;
             r->euler[1] = *data.f++;
             r->euler[2] = *data.f++;
         }
 
-        if (p->fields & POLHEMUS_DATA_TIMESTAMP) {
+        if (p->fields & PLHM_DATA_TIMESTAMP) {
             r->timestamp = *data.ui++;
         }
 
         // skip cr/lf
-        if (p->fields & POLHEMUS_DATA_CRLF)
+        if (p->fields & PLHM_DATA_CRLF)
             data.c += 2;
     } else
         return plhm_read_until_timeout(p, 100);
     return 0;
 }
 
-int plhm_data_request(polhemus_t *p)
+int plhm_data_request(plhm_t *p)
 {
     command(p, "P");
     return 0;
 }
 
-int plhm_data_request_continuous(polhemus_t *p)
+int plhm_data_request_continuous(plhm_t *p)
 {
     plhm_read_until_timeout(p, 100);
     command(p, "C\r");
     return 0;
 }
 
-int plhm_get_stations(polhemus_t *p)
+int plhm_get_stations(plhm_t *p)
 {
     // check which stations are plugged in for now, we'll assume
     // stations are plugged in from left to right, and that there
@@ -413,7 +413,7 @@ int plhm_get_stations(polhemus_t *p)
     return 0;
 }
 
-int plhm_text_mode(polhemus_t *p)
+int plhm_text_mode(plhm_t *p)
 {
     command(p, "F0\r");
     // no response
@@ -421,7 +421,7 @@ int plhm_text_mode(polhemus_t *p)
     return 0;
 }
 
-int plhm_binary_mode(polhemus_t *p)
+int plhm_binary_mode(plhm_t *p)
 {
     command(p, "F1\r");
     // no response
@@ -429,7 +429,7 @@ int plhm_binary_mode(polhemus_t *p)
     return 0;
 }
 
-int plhm_get_version(polhemus_t *p)
+int plhm_get_version(plhm_t *p)
 {
     char cmd[10];
     sprintf(cmd, "%c\r", 22);
@@ -438,26 +438,26 @@ int plhm_get_version(polhemus_t *p)
         return 1;
 
     if (strstr(p->response, "Patriot"))
-        p->tracker_type = POLHEMUS_PATRIOT;
+        p->device_type = PLHM_PATRIOT;
     else if (strstr(p->response, "Liberty"))
-        p->tracker_type = POLHEMUS_LIBERTY;
+        p->device_type = PLHM_LIBERTY;
     else
-        p->tracker_type = POLHEMUS_UNKNOWN;
+        p->device_type = PLHM_UNKNOWN;
     return 0;
 }
 
-int plhm_set_hemisphere(polhemus_t *p)
+int plhm_set_hemisphere(plhm_t *p)
 {
     command(p, "H*,0,1,0\r");
     // no response
     return 0;
 }
 
-int plhm_set_units(polhemus_t *p, polhemus_unit_type units)
+int plhm_set_units(plhm_t *p, plhm_unit units)
 {
     switch (units)
     {
-    case POLHEMUS_UNITS_METRIC:
+    case PLHM_UNITS_METRIC:
         command(p, "U1\r");
         break;
     default:
@@ -468,14 +468,14 @@ int plhm_set_units(polhemus_t *p, polhemus_unit_type units)
     return 0;
 }
 
-int plhm_set_rate(polhemus_t *p, polhemus_rate rate)
+int plhm_set_rate(plhm_t *p, plhm_rate rate)
 {
     switch (rate)
     {
-    case POLHEMUS_RATE_120:
+    case PLHM_RATE_120:
         command(p, "R3\r");
         break;
-    case POLHEMUS_RATE_240:
+    case PLHM_RATE_240:
         command(p, "R4\r");
         break;
     default:
@@ -486,23 +486,23 @@ int plhm_set_rate(polhemus_t *p, polhemus_rate rate)
     return 0;
 }
 
-int plhm_set_data_fields(polhemus_t *p, int fields)
+int plhm_set_data_fields(plhm_t *p, int fields)
 {
     char cmd[1024];
     cmd[0] = 0;
     strcat(cmd, "O*");
 
-    if (fields & POLHEMUS_DATA_POSITION)
+    if (fields & PLHM_DATA_POSITION)
         strcat(cmd, ",2");
 
-    if (fields & POLHEMUS_DATA_EULER)
+    if (fields & PLHM_DATA_EULER)
         strcat(cmd, ",4");
 
-    if (fields & POLHEMUS_DATA_TIMESTAMP)
+    if (fields & PLHM_DATA_TIMESTAMP)
         strcat(cmd, ",8");
 
     // ",1" indicates that lines should be terminated with cr/lf
-    if (fields & POLHEMUS_DATA_CRLF)
+    if (fields & PLHM_DATA_CRLF)
         strcat(cmd, ",1");
 
     strcat(cmd, "\r");
