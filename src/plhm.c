@@ -29,7 +29,6 @@ struct timeval temp;
 int listen_port=0;
 int started = 0;
 int device_found = 0;
-int device_open = 0;
 int data_good = 0;
 
 lo_address addr = 0;
@@ -190,15 +189,15 @@ int main(int argc, char *argv[])
         sprintf(str, "%d", listen_port);
         st = lo_server_thread_new(str, liblo_error);
         lo_server_thread_add_method(st, "/liberty/start", "si",
-                                    start_handler, NULL);
+                                    start_handler, &pol);
         lo_server_thread_add_method(st, "/liberty/start", "i",
-                                    start_handler, NULL);
+                                    start_handler, &pol);
         lo_server_thread_add_method(st, "/liberty/stop", "",
-                                    stop_handler, NULL);
+                                    stop_handler, &pol);
         lo_server_thread_add_method(st, "/liberty/status", "si",
-                                    status_handler, NULL);
+                                    status_handler, &pol);
         lo_server_thread_add_method(st, "/liberty/status", "i",
-                                    status_handler, NULL);
+                                    status_handler, &pol);
         lo_server_thread_start(st);
     }
 
@@ -218,13 +217,15 @@ int main(int argc, char *argv[])
         
         // Loop until device is available.
         if (plhm_find_device(device_name)) {
-            if (daemon_flag)
+            if (daemon_flag) {
+                device_found = 0;
                 continue;
-            else {
+            } else {
                 printf("[plhm] Could not find device at %s\n", device_name);
                 break;
             }
         }
+        device_found = 1;
 
         // Don't open device if nobody is listening
         if (!(started && (addr || outfile)) && daemon_flag)
@@ -348,8 +349,11 @@ int read_stations_and_send(plhm_t *pol)
 
     for (s = 0; s < pol->stations; s++)
     {
-        if (plhm_read_data_record(pol, &rec))
+        if (plhm_read_data_record(pol, &rec)) {
+            data_good = 0;
             return 1;
+        }
+        data_good = 1;
 
         curtime = ((rec.readtime.tv_sec * 1000.0)
                    + (rec.readtime.tv_usec / 1000.0));
@@ -450,9 +454,10 @@ void liblo_error(int num, const char *msg, const char *path)
 int start_handler(const char *path, const char *types, lo_arg **argv, int argc,
                   void *data, void *user_data)
 {
-    started = 0;
+    plhm_t *pol = (plhm_t*)user_data;
     int port;
     const char *hostname;
+    started = 0;
 
     if (argc == 1) {
         hostname = lo_address_get_hostname(lo_message_get_source(data));
@@ -490,7 +495,7 @@ int stop_handler(const char *path, const char *types, lo_arg **argv, int argc,
     return 0;
 }
 
-void send_status(const char* hostname, int port)
+void send_status(plhm_t *pol, const char* hostname, int port)
 {
     char port_s[30];
     char *status;
@@ -499,7 +504,7 @@ void send_status(const char* hostname, int port)
         status = "sending";
         if (!device_found)
             status = "device_not_found";
-        else if (!device_open)
+        else if (!pol->device_open)
             status = "device_found_but_not_open";
         else if (!data_good)
             status = "data_stream_error";
@@ -519,6 +524,8 @@ void send_status(const char* hostname, int port)
 int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
                    void *data, void *user_data)
 {
+    plhm_t *pol = (plhm_t*)user_data;
+
     int port;
     const char *hostname;
     if (argc == 1) {
@@ -530,7 +537,7 @@ int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
         port = argv[1]->i;
     }
 
-    send_status(hostname, port);
+    send_status(pol, hostname, port);
 
     return 0;
 }
