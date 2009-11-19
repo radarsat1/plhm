@@ -25,8 +25,7 @@ double starttime;
 double curtime;
 struct timeval temp;
 
-int port=0;
-char host[256];
+int listen_port=0;
 int started = 0;
 int device_found = 0;
 int device_open = 0;
@@ -68,6 +67,8 @@ static int position_flag = 0;
 
 const char *device_name = "/dev/ttyUSB0";
 const char *osc_url = 0;
+
+FILE *outfile = 1; // temporary
 
 int main(int argc, char *argv[])
 {
@@ -127,7 +128,7 @@ int main(int argc, char *argv[])
             break;
 
         case 'p':
-            port = atoi(optarg);
+            listen_port = atoi(optarg);
             break;
 
         case 'o':
@@ -163,22 +164,30 @@ int main(int argc, char *argv[])
         }
     }
 
-    port = 0;
-    host[0] = 0;
-
     int slp = 0;
 
     plhm_t pol;
     memset((void*)&pol, 0, sizeof(plhm_t));
 
     // setup OSC server
-    lo_server_thread st = lo_server_thread_new("5000", liblo_error);
-    lo_server_thread_add_method(st, "/liberty/start", "si", start_handler, NULL);
-    lo_server_thread_add_method(st, "/liberty/start", "i", start_handler, NULL);
-    lo_server_thread_add_method(st, "/liberty/stop", "", stop_handler, NULL);
-    lo_server_thread_add_method(st, "/liberty/status", "si", status_handler, NULL);
-    lo_server_thread_add_method(st, "/liberty/status", "i", status_handler, NULL);
-    lo_server_thread_start(st);
+    lo_server_thread st = 0;
+    if (listen_port > 0)
+    {
+        char str[256];
+        sprintf(str, "%d", listen_port);
+        st = lo_server_thread_new(str, liblo_error);
+        lo_server_thread_add_method(st, "/liberty/start", "si",
+                                    start_handler, NULL);
+        lo_server_thread_add_method(st, "/liberty/start", "i",
+                                    start_handler, NULL);
+        lo_server_thread_add_method(st, "/liberty/stop", "",
+                                    stop_handler, NULL);
+        lo_server_thread_add_method(st, "/liberty/status", "si",
+                                    status_handler, NULL);
+        lo_server_thread_add_method(st, "/liberty/status", "i",
+                                    status_handler, NULL);
+        lo_server_thread_start(st);
+    }
 
     if (osc_url != 0) {
         addr = lo_address_new_from_url(osc_url);
@@ -189,8 +198,6 @@ int main(int argc, char *argv[])
     }
 
     started = 1;
-    port = 9999;
-    strcpy(host, "localhost");
 
     while (1) {
         sleep(slp);
@@ -207,7 +214,7 @@ int main(int argc, char *argv[])
         }
 
         // Don't open device if nobody is listening
-        if ((!started || port==0) && daemon_flag)
+        if (!(started && (addr || outfile)) && daemon_flag)
             continue;
 
         if (plhm_open_device(&pol, device_name))
@@ -272,6 +279,11 @@ int main(int argc, char *argv[])
     }
 
     plhm_close_device(&pol);
+
+    if (st)
+        lo_server_thread_free(st);
+    if (addr)
+        lo_address_free(addr);
 
     return 0;
 }
@@ -427,8 +439,9 @@ int start_handler(const char *path, const char *types, lo_arg **argv, int argc,
                   void *data, void *user_data)
 {
     started = 0;
-
+    int port;
     const char *hostname;
+
     if (argc == 1) {
         hostname = lo_address_get_hostname(lo_message_get_source(data));
 
@@ -446,8 +459,12 @@ int start_handler(const char *path, const char *types, lo_arg **argv, int argc,
         port = argv[1]->i;
     }
 
-    strncpy(host, hostname, 256);
-    printf("starting... %s:%d\n", host, port);
+    char url[256];
+    sprintf(url, "osc.udp://%s:%d", hostname, port);
+    lo_address a = lo_address_new_from_url(url);
+    if (a && addr) lo_address_free(addr);
+    addr = a;
+    printf("starting... %s\n", url);
 
     started = 1;
     return 0;
