@@ -31,6 +31,7 @@ int listen_port=0;
 int started = 0;
 int device_found = 0;
 int data_good = 0;
+int poll_period = 0;
 
 lo_address addr = 0;
 
@@ -42,7 +43,7 @@ int stop_handler(const char *path, const char *types, lo_arg **argv, int argc,
 int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
                    void *data, void *user_data);
 
-int read_stations_and_send(plhm_t *pol);
+int read_stations_and_send(plhm_t *pol, int poll);
 
 typedef union {
     const int *i;
@@ -79,8 +80,9 @@ int main(int argc, char *argv[])
         {"euler",    no_argument,       &euler_flag,    1},
         {"position", no_argument,       &position_flag, 1},
         {"output",   optional_argument, 0,              'o'},
-        {"oscurl",   required_argument, 0,              'u'},
-        {"oscport",  required_argument, 0,              'p'},
+        {"send",     required_argument, 0,              's'},
+        {"listen",   required_argument, 0,              'l'},
+        {"poll",     optional_argument, 0,              'p'},
         {"help",     no_argument,       0,              0},
         {"version",  no_argument,       0,              'V'},
         {0, 0, 0, 0}
@@ -89,7 +91,7 @@ int main(int argc, char *argv[])
     while (1)
     {
         int option_index = 0;
-        int c = getopt_long(argc, argv, "Dd:HEPo::u:p:hV",
+        int c = getopt_long(argc, argv, "Dd:HEPo::s:l:hVp::",
                             long_options, &option_index);
         if (c==-1)
             break;
@@ -127,8 +129,18 @@ int main(int argc, char *argv[])
             osc_url = optarg;
             break;
 
-        case 'p':
+        case 'l':
             listen_port = atoi(optarg);
+            break;
+
+        case 'p':
+            poll_period = -1;
+            if (optarg)
+                poll_period = (int)(atof(optarg)*1000);
+            if (!poll_period) {
+                printf("[plhm] Please specify a poll period in milliseconds.\n");
+                exit(1);
+            }
             break;
 
         case 'o':
@@ -160,12 +172,15 @@ int main(int argc, char *argv[])
 "  -o --output=[path]    write data to stdout, or to a file\n"
 "                        if path is specified\n"
 "  -H --hex              write float values as hexidecimal\n"
-"  -u --oscurl=<url>     provide a URL for OSC destination\n"
+"  -s --send=<url>       provide a URL for OSC destination\n"
 "                        this URL must be liblo-compatible,\n"
 "                        e.g., osc.udp://localhost:9999\n"
 "                        this option is required to enable\n"
 "                        the Open Sound Control interface\n"
-"  -p --oscport=<port>   port on which to listen for OSC messages\n"
+"  -l --listen=<port>    port on which to listen for OSC messages\n"
+"  -p --poll=[period]    poll instead of requesting continuous data\n"
+"                        optional period is in milliseconds, or as\n"
+"                        fast as possible if unspecified.\n"
 "  -V --version          print the version string and exit\n"
 "  -h --help             show this help\n"
                    , argv[0]);
@@ -273,10 +288,14 @@ int main(int argc, char *argv[])
 
         CHECKBRK("binary_mode",plhm_binary_mode(&pol));
 
-        CHECKBRK("data_request_continuous",plhm_data_request_continuous(&pol));
+        if (!poll_period)
+            CHECKBRK("data_request_continuous",plhm_data_request_continuous(&pol));
 
         /* loop getting data until stop is requested or error occurs */
-        while (started && !read_stations_and_send(&pol)) {}
+        while (started && !read_stations_and_send(&pol,!poll_period)) {
+            if (poll_period > 0)
+                usleep(poll_period);
+        }
 
         // stop any incoming continuous data
         CHECKBRK("data_request",plhm_data_request(&pol));
@@ -321,7 +340,7 @@ int timeval_subtract (struct timeval *result,
     return x->tv_sec < y->tv_sec;
 }
 
-int read_stations_and_send(plhm_t *pol)
+int read_stations_and_send(plhm_t *pol, int poll)
 {
     int i = 0;
     struct timeval now, diff;
@@ -338,7 +357,8 @@ int read_stations_and_send(plhm_t *pol)
         c=0;
     }
 
-/*     plhm_data_request(pol); */
+    if (poll)
+        plhm_data_request(pol);
     
     const float *pData;
     plhm_record_t rec;
