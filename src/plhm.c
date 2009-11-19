@@ -25,6 +25,7 @@
 double starttime;
 double curtime;
 struct timeval temp;
+struct timeval prev;
 
 int listen_port=0;
 int started = 0;
@@ -32,9 +33,6 @@ int device_found = 0;
 int data_good = 0;
 
 lo_address addr = 0;
-
-int printswitch = 0;
-struct timeval prev;
 
 void liblo_error(int num, const char *msg, const char *path);
 int start_handler(const char *path, const char *types, lo_arg **argv, int argc,
