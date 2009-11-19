@@ -47,7 +47,7 @@ int stop_handler(const char *path, const char *types, lo_arg **argv, int argc,
 int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
                    void *data, void *user_data);
 
-int GetBinPno(plhm_t *pol);
+int read_stations_and_send(plhm_t *pol);
 
 typedef union {
     const int *i;
@@ -259,7 +259,7 @@ int main(int argc, char *argv[])
         CHECKBRK("data_request_continuous",plhm_data_request_continuous(&pol));
 
         /* loop getting data until stop is requested or error occurs */
-        while (started && !GetBinPno(&pol)) {}
+        while (started && !read_stations_and_send(&pol)) {}
 
         // stop any incoming continuous data
         CHECKBRK("data_request",plhm_data_request(&pol));
@@ -297,7 +297,7 @@ int timeval_subtract (struct timeval *result,
     return x->tv_sec < y->tv_sec;
 }
 
-int GetBinPno(plhm_t *pol)
+int read_stations_and_send(plhm_t *pol)
 {
     int i = 0;
     struct timeval now, diff;
