@@ -65,6 +65,6 @@ AC_CONFIG_FILES([
     Makefile
     src/Makefile
     include/Makefile
-    plhm-$MAJOR_VERSION.pc
+    plhm.pc
 ])
 AC_OUTPUT
