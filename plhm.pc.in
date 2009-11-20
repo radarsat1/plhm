@@ -5,7 +5,7 @@ includedir=@includedir@
 
 Name: plhm
 Description: A library to encapsulate communication with a Polhemus Liberty motion tracker.
-Requires: liblo
+Requires: @LIBLO@
 Version: @VERSION@
 Libs: -L${libdir} -lplhm-@MAJOR_VERSION@
 Cflags: -I${includedir}/plhm-@MAJOR_VERSION@

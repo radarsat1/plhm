@@ -41,8 +41,17 @@ AC_CHECK_PROG([DOXYGEN], [doxygen], [doc], [])
 AC_SUBST(DOXYGEN)
 PKG_PROG_PKG_CONFIG
 
-# Checks for libraries.
-PKG_CHECK_MODULES([liblo], [liblo >= 0.26])
+# Check for liblo
+AC_ARG_WITH([liblo],
+  AS_HELP_STRING([--without-liblo],[compile without liblo, disable OSC]))
+AS_IF([test x$with_liblo != xno],[
+  PKG_CHECK_MODULES([liblo], [liblo >= 0.26])])
+AS_IF([test "x$liblo_LIBS" = x],
+  [with_liblo=no])
+AS_IF([test x$with_liblo != xno],[
+  AC_DEFINE([HAVE_LIBLO],[],[Define to enable Open Sound Control support with liblo])
+  AC_SUBST(LIBLO,liblo)
+])
 
 # Checks for header files.
 AC_HEADER_STDC

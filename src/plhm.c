@@ -17,9 +17,12 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#include <lo/lo.h>
-
 #include "config.h"
+
+#ifdef HAVE_LIBLO
+#include <lo/lo.h>
+#endif
+
 #include <plhm.h>
 
 double starttime;
@@ -33,6 +36,7 @@ int device_found = 0;
 int data_good = 0;
 int poll_period = 0;
 
+#ifdef HAVE_LIBLO
 lo_address addr = 0;
 
 void liblo_error(int num, const char *msg, const char *path);
@@ -42,6 +46,9 @@ int stop_handler(const char *path, const char *types, lo_arg **argv, int argc,
                  void *data, void *user_data);
 int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
                    void *data, void *user_data);
+#else
+int addr = 1;
+#endif
 
 int read_stations_and_send(plhm_t *pol, int poll);
 
@@ -82,8 +89,10 @@ int main(int argc, char *argv[])
         {"position", no_argument,       &position_flag, 1},
         {"timestamp",no_argument,       &timestamp_flag,1},
         {"output",   optional_argument, 0,              'o'},
+#ifdef HAVE_LIBLO
         {"send",     required_argument, 0,              's'},
         {"listen",   required_argument, 0,              'l'},
+#endif
         {"poll",     optional_argument, 0,              'p'},
         {"help",     no_argument,       0,              0},
         {"version",  no_argument,       0,              'V'},
@@ -130,6 +139,7 @@ int main(int argc, char *argv[])
             device_name = optarg;
             break;
 
+#ifdef HAVE_LIBLO
         case 'u':
             // handle OSC url (liblo)
             osc_url = optarg;
@@ -138,6 +148,7 @@ int main(int argc, char *argv[])
         case 'l':
             listen_port = atoi(optarg);
             break;
+#endif
 
         case 'p':
             poll_period = -1;
@@ -178,12 +189,14 @@ int main(int argc, char *argv[])
 "  -o --output=[path]    write data to stdout, or to a file\n"
 "                        if path is specified\n"
 "  -H --hex              write float values as hexidecimal\n"
+#ifdef HAVE_LIBLO
 "  -s --send=<url>       provide a URL for OSC destination\n"
 "                        this URL must be liblo-compatible,\n"
 "                        e.g., osc.udp://localhost:9999\n"
 "                        this option is required to enable\n"
 "                        the Open Sound Control interface\n"
 "  -l --listen=<port>    port on which to listen for OSC messages\n"
+#endif
 "  -p --poll=[period]    poll instead of requesting continuous data\n"
 "                        optional period is in milliseconds, or as\n"
 "                        fast as possible if unspecified.\n"
@@ -200,6 +213,7 @@ int main(int argc, char *argv[])
     plhm_t pol;
     memset((void*)&pol, 0, sizeof(plhm_t));
 
+#ifdef HAVE_LIBLO
     // setup OSC server
     lo_server_thread st = 0;
     if (listen_port > 0)
@@ -227,6 +241,7 @@ int main(int argc, char *argv[])
             exit(1);
         }
     }
+#endif
 
     started = 1;
 
@@ -317,10 +332,12 @@ int main(int argc, char *argv[])
 
     plhm_close_device(&pol);
 
+#ifdef HAVE_LIBLO
     if (st)
         lo_server_thread_free(st);
     if (addr)
         lo_address_free(addr);
+#endif
     if (outfile && (outfile != stdout))
         fclose(outfile);
 
@@ -420,6 +437,7 @@ int read_stations_and_send(plhm_t *pol, int poll)
         if (!addr)
             continue;
 
+#ifdef HAVE_LIBLO
         int station = rec.station;
         pData = &rec.position[0];
 
@@ -456,11 +474,13 @@ int read_stations_and_send(plhm_t *pol, int poll)
 
         sprintf(path, "/liberty/marker/%d/readtime", station);
         lo_send(addr, path, "f", curtime);
+#endif // HAVE_LIBLO
     }
 
     return 0;
 }
 
+#ifdef HAVE_LIBLO
 void liblo_error(int num, const char *msg, const char *path)
 {
     printf("liblo server error %d in path %s: %s\n", num, path, msg);
@@ -557,3 +577,4 @@ int status_handler(const char *path, const char *types, lo_arg **argv, int argc,
 
     return 0;
 }
+#endif // HAVE_LIBLO
