@@ -7,3 +7,5 @@ plhm-@MAJOR_VERSION@.pc: plhm.pc
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = plhm-@MAJOR_VERSION@.pc
+
+dist_doc_DATA = README COPYING ChangeLog NEWS
