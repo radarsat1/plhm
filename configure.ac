@@ -1,6 +1,6 @@
 AC_PREREQ(2.63)
 
-AC_INIT([libplhm],[0.1],[sinclair@music.mcgill.ca])
+AC_INIT([plhm],[0.1],[sinclair@music.mcgill.ca])
 
 # libtool version: current:revision:age
 #

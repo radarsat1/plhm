@@ -1,5 +1,5 @@
-libplhm
-=======
+plhm
+====
 
 Introduction
 ------------
