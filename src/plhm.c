@@ -379,7 +379,6 @@ void log_float(float f)
 
 int read_stations_and_send(plhm_t *pol, int poll)
 {
-    int i = 0;
     struct timeval now, diff;
 
     static int c=0;
@@ -397,9 +396,7 @@ int read_stations_and_send(plhm_t *pol, int poll)
     if (poll)
         plhm_data_request(pol);
     
-    const float *pData;
     plhm_record_t rec;
-    multiptr p;
     int s;
 
     for (s = 0; s < pol->stations; s++)
@@ -438,41 +435,38 @@ int read_stations_and_send(plhm_t *pol, int poll)
             continue;
 
 #ifdef HAVE_LIBLO
-        int station = rec.station;
-        pData = &rec.position[0];
-
         char path[30];
         if (rec.fields & PLHM_DATA_POSITION)
         {
-            sprintf(path, "/liberty/marker/%d/x", station);
+            sprintf(path, "/liberty/marker/%d/x", rec.station);
             lo_send(addr, path, "f", rec.position[0]);
 
-            sprintf(path, "/liberty/marker/%d/y", station);
+            sprintf(path, "/liberty/marker/%d/y", rec.station);
             lo_send(addr, path, "f", rec.position[1]);
 
-            sprintf(path, "/liberty/marker/%d/z", station);
+            sprintf(path, "/liberty/marker/%d/z", rec.station);
             lo_send(addr, path, "f", rec.position[2]);
         }
 
         if (rec.fields & PLHM_DATA_EULER)
         {
-            sprintf(path, "/liberty/marker/%d/azimuth", station);
+            sprintf(path, "/liberty/marker/%d/azimuth", rec.station);
             lo_send(addr, path, "f", rec.euler[0]);
 
-            sprintf(path, "/liberty/marker/%d/elevation", station);
+            sprintf(path, "/liberty/marker/%d/elevation", rec.station);
             lo_send(addr, path, "f", rec.euler[1]);
 
-            sprintf(path, "/liberty/marker/%d/roll", station);
+            sprintf(path, "/liberty/marker/%d/roll", rec.station);
             lo_send(addr, path, "f", rec.euler[2]);
         }
 
         if (rec.fields & PLHM_DATA_TIMESTAMP)
         {
-            sprintf(path, "/liberty/marker/%d/timestamp", station);
+            sprintf(path, "/liberty/marker/%d/timestamp", rec.station);
             lo_send(addr, path, "i", rec.timestamp);
         }
 
-        sprintf(path, "/liberty/marker/%d/readtime", station);
+        sprintf(path, "/liberty/marker/%d/readtime", rec.station);
         lo_send(addr, path, "f", curtime);
 #endif // HAVE_LIBLO
     }
@@ -490,7 +484,6 @@ void liblo_error(int num, const char *msg, const char *path)
 int start_handler(const char *path, const char *types, lo_arg **argv, int argc,
                   void *data, void *user_data)
 {
-    plhm_t *pol = (plhm_t*)user_data;
     int port;
     const char *hostname;
     started = 0;
