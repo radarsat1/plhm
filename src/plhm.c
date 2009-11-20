@@ -346,6 +346,20 @@ int timeval_subtract (struct timeval *result,
     return x->tv_sec < y->tv_sec;
 }
 
+void log_float(float f)
+{
+    multiptr p;
+    p.f = &f;
+    if (hex_flag) {
+        LOG(", 0x%02x%02x%02x%02x",
+            p.uc[0] & 0xFF,
+            p.uc[1] & 0xFF,
+            p.uc[2] & 0xFF,
+            p.uc[3] & 0xFF);
+    } else
+        LOG(", %.4f", f);
+}
+
 int read_stations_and_send(plhm_t *pol, int poll)
 {
     int i = 0;
@@ -386,38 +400,16 @@ int read_stations_and_send(plhm_t *pol, int poll)
 
         if (rec.fields & PLHM_DATA_POSITION)
         {
-            if (hex_flag)
-                for (i=0; i<3; i++) {
-                    p.f = &rec.position[i];
-                    LOG(", 0x%02x%02x%02x%02x",
-                        p.uc[0] & 0xFF,
-                        p.uc[1] & 0xFF,
-                        p.uc[2] & 0xFF,
-                        p.uc[3] & 0xFF);
-                }
-            else
-                LOG(", %.4f, %.4f, %.4f",
-                    rec.position[0],
-                    rec.position[1],
-                    rec.position[2]);
+            log_float(rec.position[0]);
+            log_float(rec.position[1]);
+            log_float(rec.position[2]);
         }
 
         if (rec.fields & PLHM_DATA_EULER)
         {
-            if (hex_flag)
-                for (i=0; i<3; i++) {
-                    p.f = &rec.euler[i];
-                    LOG(", 0x%02x%02x%02x%02x",
-                        p.uc[0] & 0xFF,
-                        p.uc[1] & 0xFF,
-                        p.uc[2] & 0xFF,
-                        p.uc[3] & 0xFF);
-                }
-            else
-                LOG(", %.4f, %.4f, %.4f",
-                    rec.euler[0],
-                    rec.euler[1],
-                    rec.euler[2]);
+            log_float(rec.euler[0]);
+            log_float(rec.euler[1]);
+            log_float(rec.euler[2]);
         }
 
         if (rec.fields & PLHM_DATA_TIMESTAMP)
