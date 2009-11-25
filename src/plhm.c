@@ -340,6 +340,9 @@ int main(int argc, char *argv[])
         CHECKBRK("text_mode",plhm_text_mode(&pol));
 
         plhm_close_device(&pol);
+
+        if (!daemon_flag)
+            break;
     }
 
     plhm_close_device(&pol);
