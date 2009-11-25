@@ -193,6 +193,7 @@ int main(int argc, char *argv[])
 "  -d --device=<device>  specify the serial device to use\n"
 "  -P --position         request position data\n"
 "  -E --euler            request euler angle data\n"
+"  -T --timestamp        request timestamp data\n"
 "  -o --output=[path]    write data to stdout, or to a file\n"
 "                        if path is specified\n"
 "  -H --hex              write float values as hexidecimal\n"
