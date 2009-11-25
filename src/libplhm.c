@@ -187,7 +187,8 @@ static int read_bytes(plhm_t *p, int bytes)
             return 2;
         }
     }
-    printf("Timed out while reading.\n");
+    printf("Timed out while reading.  Expected %d bytes, got %d.\n",
+           bytes, p->pos);
     return 1;
 }
 
