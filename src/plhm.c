@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "config.h"
 
@@ -78,6 +79,10 @@ const char *device_name = "/dev/ttyUSB0";
 const char *osc_url = 0;
 
 FILE *outfile = 0;
+
+void ctrlc_handler(int sig) {
+    started = 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -248,6 +253,8 @@ int main(int argc, char *argv[])
 #endif
 
     started = 1;
+
+    signal(SIGINT, ctrlc_handler);
 
     while (1) {
         sleep(slp);
