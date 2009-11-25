@@ -325,7 +325,7 @@ int main(int argc, char *argv[])
             CHECKBRK("data_request_continuous",plhm_data_request_continuous(&pol));
 
         /* loop getting data until stop is requested or error occurs */
-        while (started && !read_stations_and_send(&pol,!poll_period)) {
+        while (started && !read_stations_and_send(&pol,poll_period!=0)) {
             if (poll_period > 0)
                 usleep(poll_period);
         }
