@@ -300,10 +300,8 @@ int main(int argc, char *argv[])
 
         // determine tracker type        
         CHECKBRK("get_version",plhm_get_version(&pol));
-        if (pol.device_type == PLHM_UNKNOWN) {
-            printf("Warning: Device type query unsuccessful.\n");
-            exit(1);
-        }
+        if (pol.device_type == PLHM_UNKNOWN)
+            printf("[plhm] Warning: Device type unknown.\n");
 
         // check for initialization errors
         CHECKBRK("read_bits",plhm_read_bits(&pol));
