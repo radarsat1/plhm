@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
             break;
 
         case 'V':
-            printf(PACKAGE_STRING "  (" __DATE__ ")");
+            printf(PACKAGE_STRING "  (" __DATE__ ")\n");
             exit(0);
             break;
 
