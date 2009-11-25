@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, ctrlc_handler);
 
-    while (1) {
+    while (started || daemon_flag) {
         sleep(slp);
         slp = 1;
         
