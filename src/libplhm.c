@@ -124,6 +124,10 @@ int plhm_read_until_timeout(plhm_t *p, int ms)
         }
         if (errno == EAGAIN) {
             usleep(5000);
+#ifdef DEBUG
+            printf("%d\r",count);
+            fflush(stdout);
+#endif
             continue;
         }
         else {
