@@ -92,5 +92,6 @@ int plhm_set_hemisphere(plhm_t *p);
 int plhm_set_units(plhm_t *p, plhm_unit units);
 int plhm_set_rate(plhm_t *p, plhm_rate rate);
 int plhm_set_data_fields(plhm_t *p, int fields);
+void plhm_reset(plhm_t *p);
 
 #endif // _PLHM_H_

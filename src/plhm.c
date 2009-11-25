@@ -72,6 +72,7 @@ static int hex_flag = 0;
 static int euler_flag = 0;
 static int position_flag = 0;
 static int timestamp_flag = 0;
+static int reset_flag = 0;
 
 const char *device_name = "/dev/ttyUSB0";
 const char *osc_url = 0;
@@ -96,6 +97,7 @@ int main(int argc, char *argv[])
         {"poll",     optional_argument, 0,              'p'},
         {"help",     no_argument,       0,              0},
         {"version",  no_argument,       0,              'V'},
+        {"reset",    no_argument,       &reset_flag,    1},
         {0, 0, 0, 0}
     };
 
@@ -200,6 +202,8 @@ int main(int argc, char *argv[])
 "  -p --poll=[period]    poll instead of requesting continuous data\n"
 "                        optional period is in milliseconds, or as\n"
 "                        fast as possible if unspecified.\n"
+"     --reset            reset the device before starting acquisition\n"
+"                        (takes 10 seconds)\n"
 "  -V --version          print the version string and exit\n"
 "  -h --help             show this help\n"
                    , argv[0]);

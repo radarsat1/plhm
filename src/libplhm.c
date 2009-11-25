@@ -252,6 +252,14 @@ int plhm_is_initialized(plhm_t *p)
     return p->device_open;
 }
 
+void plhm_reset(plhm_t *p)
+{
+    command(p, "\x19\r");
+    sleep(10);
+    plhm_read_until_timeout(p, 1000);
+    return;
+}
+
 int plhm_find_device(const char *device)
 {
     struct stat st;
