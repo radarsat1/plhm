@@ -220,6 +220,12 @@ int main(int argc, char *argv[])
 
     int slp = 0;
 
+    // sanity check: ensure user requested something
+    if (!(euler_flag || position_flag || timestamp_flag)) {
+        printf("[plhm] No data requested.  Try option '-h' for help.\n");
+        exit(1);
+    }
+
     plhm_t pol;
     memset((void*)&pol, 0, sizeof(plhm_t));
 
