@@ -321,7 +321,7 @@ int plhm_read_data_record(plhm_t *p, plhm_record_t *r)
 
         if (p->response_length != bytes) {
             trace("response not the expected length.  got %d bytes, "
-                  "but expected %d\n", pol->response_length, bytes);
+                  "but expected %d\n", p->response_length, bytes);
             return 1;
         }
 
@@ -334,7 +334,7 @@ int plhm_read_data_record(plhm_t *p, plhm_record_t *r)
         data.c += 2;
 
         r->station = *data.c;
-        trace("station %d\n", station);
+        trace("station %d\n", r->station);
         data.c += 1;
 
         // skip initiating command
