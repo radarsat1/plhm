@@ -291,6 +291,8 @@ int plhm_get_station_info(plhm_t *p, int station)
         return 1;
     if (strstr(p->response, "ID:0\r"))
         return -1;
+    if (!strstr(p->response, "Station"))
+        return 1;
     return 0;
 }
 
@@ -441,18 +443,15 @@ int plhm_binary_mode(plhm_t *p)
 
 int plhm_get_version(plhm_t *p)
 {
-    char cmd[10];
-    sprintf(cmd, "%c\r", 22);
-    command(p, cmd);
-    if (plhm_read_until_timeout(p, 100))
-        return 1;
-
-    if (strstr(p->response, "Patriot"))
-        p->device_type = PLHM_PATRIOT;
-    else if (strstr(p->response, "Liberty"))
-        p->device_type = PLHM_LIBERTY;
-    else
-        p->device_type = PLHM_UNKNOWN;
+    command(p, "\x16\r");
+    p->device_type = PLHM_UNKNOWN;
+    while (!plhm_read_until_timeout(p, 1000))
+    {
+        if (strstr(p->response, "Patriot"))
+            p->device_type = PLHM_PATRIOT;
+        else if (strstr(p->response, "Liberty"))
+            p->device_type = PLHM_LIBERTY;
+    }
     return 0;
 }
 

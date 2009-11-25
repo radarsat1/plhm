@@ -283,12 +283,20 @@ int main(int argc, char *argv[])
         // ignore the response
         CHECKBRK("data_request",plhm_data_request(&pol));
 
-        plhm_read_until_timeout(&pol, 500);
+        while (!plhm_read_until_timeout(&pol, 500)) {}
+
+        // reset the device if requested (waits 10 seconds)
+        if (reset_flag)
+            plhm_reset(&pol);
 
         CHECKBRK("text_mode",plhm_text_mode(&pol));
 
         // determine tracker type        
         CHECKBRK("get_version",plhm_get_version(&pol));
+        if (pol.device_type == PLHM_UNKNOWN) {
+            printf("Warning: Device type query unsuccessful.\n");
+            exit(1);
+        }
 
         // check for initialization errors
         CHECKBRK("read_bits",plhm_read_bits(&pol));
