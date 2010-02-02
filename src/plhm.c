@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
             break;
 
 #ifdef HAVE_LIBLO
-        case 'u':
+        case 's':
             // handle OSC url (liblo)
             osc_url = optarg;
             break;
