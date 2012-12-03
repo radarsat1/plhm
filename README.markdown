@@ -91,6 +91,6 @@ Copyright
 This code is licensed under the GNU General Public License v2 or
 later.  Please see [COPYING](COPYING) for more information.
 
-[1]: http://www.polhemus.com/polhemus_editor/assets/LIBERTY%20Rev%20F%20URM03PH156.pdf
+[1]: http://www.polhemus.com/polhemus_editor/assets/LIBERTY%20User%20Manual%20URM03PH156-H.pdf
 
 [2]: http://idmil.org/software/plhm
